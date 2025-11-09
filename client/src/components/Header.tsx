@@ -71,11 +71,11 @@ export function Header({
           <Button
             variant="outline"
             size="icon"
-            className="relative rounded-full h-12 w-12 border-2 backdrop-blur-lg hover:shadow-lg transition-all duration-300"
+            className="relative rounded-full h-12 w-12 border-2 backdrop-blur-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center"
             onClick={onNotificationClick}
             data-testid="button-notifications"
           >
-            <Bell className={`h-5 w-5 transition-all ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
+            <Bell className={`h-5 w-5 transition-all shrink-0 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
             {unreadCount > 0 && (
               <>
                 <Badge
