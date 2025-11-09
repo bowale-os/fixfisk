@@ -1,19 +1,26 @@
 import { db } from "./db";
-import { users, posts, comments, votes, notifications } from "@shared/schema";
+import { users, posts, comments, votes, notifications, magicLinkTokens } from "@shared/schema";
 import type { 
   User, InsertUser,
   Post, InsertPost,
   Comment, InsertComment,
   Vote, InsertVote,
-  Notification, InsertNotification
+  Notification, InsertNotification,
+  MagicLinkToken, InsertMagicLinkToken
 } from "@shared/schema";
-import { eq, desc, and, sql, isNull, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, isNull, inArray, lt } from "drizzle-orm";
 
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Magic Link Tokens
+  createMagicLinkToken(token: InsertMagicLinkToken): Promise<MagicLinkToken>;
+  getMagicLinkToken(token: string): Promise<MagicLinkToken | undefined>;
+  deleteMagicLinkToken(token: string): Promise<void>;
+  deleteExpiredTokens(): Promise<void>;
   
   // Posts
   getPost(id: string): Promise<Post | undefined>;
@@ -57,6 +64,25 @@ export class DbStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values(insertUser).returning();
     return result[0];
+  }
+
+  // Magic Link Tokens
+  async createMagicLinkToken(insertToken: InsertMagicLinkToken): Promise<MagicLinkToken> {
+    const result = await db.insert(magicLinkTokens).values(insertToken).returning();
+    return result[0];
+  }
+
+  async getMagicLinkToken(token: string): Promise<MagicLinkToken | undefined> {
+    const result = await db.select().from(magicLinkTokens).where(eq(magicLinkTokens.token, token)).limit(1);
+    return result[0];
+  }
+
+  async deleteMagicLinkToken(token: string): Promise<void> {
+    await db.delete(magicLinkTokens).where(eq(magicLinkTokens.token, token));
+  }
+
+  async deleteExpiredTokens(): Promise<void> {
+    await db.delete(magicLinkTokens).where(lt(magicLinkTokens.expiresAt, new Date()));
   }
 
   // Posts
