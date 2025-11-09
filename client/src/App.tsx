@@ -10,19 +10,17 @@ import { FilterBar } from "@/components/FilterBar";
 import { PostCard } from "@/components/PostCard";
 import { CreatePostDialog } from "@/components/CreatePostDialog";
 import { NotificationPanel } from "@/components/NotificationPanel";
-import { PostDetail } from "@/components/PostDetail";
 import { AuthPage } from "@/components/AuthPage";
 
 function FeedPage() {
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
   const mockPosts = [
     {
       id: "1",
       title: "Broken AC in Johnson Hall needs immediate attention",
-      description: "The air conditioning in Johnson Hall has been broken for over a week. It's extremely uncomfortable for students living there, especially during these hot days.",
+      description: "The air conditioning in Johnson Hall has been broken for over a week. It's extremely uncomfortable for students living there, especially during these hot days. Multiple residents have complained to the RA but nothing has been done yet.",
       author: "Sarah Johnson",
       isAnonymous: false,
       timestamp: "2 hours ago",
@@ -34,7 +32,7 @@ function FeedPage() {
     {
       id: "2",
       title: "Campus WiFi constantly disconnects in library",
-      description: "The WiFi in the library keeps disconnecting every 10-15 minutes. This makes it impossible to complete online assignments or attend virtual meetings.",
+      description: "The WiFi in the library keeps disconnecting every 10-15 minutes. This makes it impossible to complete online assignments or attend virtual meetings. This has been happening for weeks now.",
       isAnonymous: true,
       timestamp: "5 hours ago",
       tags: ["Technology", "Academics"],
@@ -46,7 +44,7 @@ function FeedPage() {
     {
       id: "3",
       title: "Need more vegetarian options in dining hall",
-      description: "There are very few vegetarian options available in the main dining hall. Many students have dietary restrictions that aren't being accommodated.",
+      description: "There are very few vegetarian options available in the main dining hall. Many students have dietary restrictions that aren't being accommodated. We need more variety and healthier choices.",
       author: "Michael Davis",
       isAnonymous: false,
       timestamp: "1 day ago",
@@ -58,13 +56,24 @@ function FeedPage() {
     {
       id: "4",
       title: "Better lighting needed in parking lots",
-      description: "The parking lots are very poorly lit at night, which creates safety concerns. More lighting would make students feel safer walking to their cars.",
+      description: "The parking lots are very poorly lit at night, which creates safety concerns. More lighting would make students feel safer walking to their cars after evening classes and events.",
       isAnonymous: true,
       timestamp: "2 days ago",
       tags: ["Campus Safety", "Facilities"],
       upvotes: 203,
       commentCount: 67,
       status: "completed" as const,
+    },
+    {
+      id: "5",
+      title: "Extended library hours during finals week",
+      description: "The library should stay open 24 hours during finals week like other universities do. Students need a quiet place to study late at night, especially those who live in noisy dorms.",
+      author: "Jessica Williams",
+      isAnonymous: false,
+      timestamp: "3 days ago",
+      tags: ["Academics", "Facilities"],
+      upvotes: 234,
+      commentCount: 89,
     },
   ];
 
@@ -98,69 +107,8 @@ function FeedPage() {
     },
   ];
 
-  const mockComments = [
-    {
-      id: "1",
-      author: "Emily Carter",
-      isAnonymous: false,
-      content: "I completely agree! The AC has been unbearable. We've been complaining to the RA for days with no response.",
-      timestamp: "1 hour ago",
-      upvotes: 23,
-      hasUpvoted: true,
-      canEdit: true,
-      replies: [
-        {
-          id: "2",
-          isAnonymous: true,
-          content: "Same here. I can't sleep at night because of the heat.",
-          timestamp: "45 minutes ago",
-          upvotes: 8,
-        },
-      ],
-    },
-  ];
-
-  const selectedPost = mockPosts.find(p => p.id === selectedPostId);
-
-  if (selectedPost) {
-    return (
-      <>
-        <Header
-          unreadCount={2}
-          userEmail="student@my.fisk.edu"
-          isAdmin={true}
-          onNotificationClick={() => setNotificationsOpen(true)}
-          onCreatePost={() => setCreatePostOpen(true)}
-        />
-        <PostDetail
-          post={selectedPost}
-          comments={mockComments}
-          isAdmin={true}
-          canEdit={false}
-          onBack={() => setSelectedPostId(null)}
-          onUpvote={() => console.log("Upvoted")}
-          onStatusChange={(status) => console.log("Status changed:", status)}
-          onAddComment={(content, isAnon) => console.log("Comment added:", content, isAnon)}
-        />
-        <CreatePostDialog
-          open={createPostOpen}
-          onOpenChange={setCreatePostOpen}
-          onSubmit={(post) => console.log("Post created:", post)}
-        />
-        {notificationsOpen && (
-          <NotificationPanel
-            notifications={mockNotifications}
-            onClose={() => setNotificationsOpen(false)}
-            onMarkAllRead={() => console.log("Mark all read")}
-            onNotificationClick={(id) => console.log("Notification clicked:", id)}
-          />
-        )}
-      </>
-    );
-  }
-
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-accent/30 via-background to-accent/20">
       <Header
         unreadCount={2}
         userEmail="student@my.fisk.edu"
@@ -173,13 +121,13 @@ function FeedPage() {
         onTagsChange={(tags) => console.log("Tags:", tags)}
         onStatusFilterChange={(show) => console.log("SGA filter:", show)}
       />
-      <main className="max-w-4xl mx-auto p-4 space-y-4">
+      <main className="max-w-5xl mx-auto px-6 md:px-8 py-12 space-y-8 md:space-y-12">
         {mockPosts.map((post) => (
           <PostCard
             key={post.id}
             {...post}
             isAdmin={true}
-            onClick={() => setSelectedPostId(post.id)}
+            onClick={() => console.log("View post:", post.id)}
           />
         ))}
       </main>
@@ -196,7 +144,7 @@ function FeedPage() {
           onNotificationClick={(id) => console.log("Notification clicked:", id)}
         />
       )}
-    </>
+    </div>
   );
 }
 

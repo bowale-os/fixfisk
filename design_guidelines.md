@@ -1,175 +1,161 @@
-# Fisk University Campus Feedback Platform - Design Guidelines
+# Fisk University Campus Feedback Platform - Premium Design Guidelines
 
 ## Design Approach
-**Reference-Based with System Principles**: Drawing inspiration from Linear's clean issue tracking, Reddit's community engagement patterns, and GitHub's discussion interfaces. Focus on scannable content, clear hierarchy, and efficient interaction patterns suitable for a university community platform.
+**Reference-Based Premium**: Drawing from Linear's precision and speed, Reddit's modern card-based engagement, and Apple's refinement. Focus on glassmorphic depth, generous whitespace, bold hierarchy, and delightful micro-interactions that make the platform feel like a premium product.
+
+## Color System
+**Fisk University Brand**:
+- Primary Blue: Rich, deep blue for primary actions, headers, active states
+- Gold Accent: Warm gold for highlights, badges, success states, upvote indicators
+- Supporting: Deep navy backgrounds, soft cream for elevated surfaces
+- System: Use alpha channels for glassmorphic overlays (bg-white/10, bg-blue/20)
 
 ## Typography System
 
 **Font Families**:
-- Primary: Inter (Google Fonts) - for UI elements, buttons, labels
-- Secondary: System UI fonts - for body text and comments
+- Primary: Inter (Google Fonts, weights: 400, 500, 600, 700, 800)
+- Display: Inter with tighter tracking for hero elements
 
-**Type Scale**:
-- Hero/Empty States: text-4xl, font-bold
-- Post Titles: text-xl, font-semibold
-- Section Headers: text-lg, font-semibold
-- Body Text: text-base, font-normal
-- Meta Information: text-sm, font-normal
-- Tags/Labels: text-xs, font-medium, uppercase tracking-wide
-- Buttons: text-sm, font-medium
+**Type Scale** (Bold hierarchy):
+- Hero/Feature Headers: text-5xl md:text-6xl, font-bold, tracking-tight
+- Post Titles: text-2xl md:text-3xl, font-bold
+- Section Headers: text-xl md:text-2xl, font-semibold
+- Body Text: text-base md:text-lg, font-normal, leading-relaxed
+- Meta/Labels: text-sm, font-medium
+- Tags: text-xs, font-semibold, uppercase, tracking-wider
 
 ## Layout System
 
-**Spacing Primitives**: Use Tailwind units of 2, 4, 6, 8, 12, 16 for consistent rhythm
-- Component padding: p-4, p-6
-- Section spacing: space-y-6, space-y-8
-- Card gaps: gap-4, gap-6
-- Margins: m-4, m-8, m-12
+**Spacing Primitives**: Tailwind units of 4, 6, 8, 12, 16, 20, 24, 32
+- Component padding: p-6, p-8, p-12 (generous)
+- Section spacing: space-y-12, space-y-16, space-y-20
+- Card gaps: gap-6, gap-8
+- Container breathing room: py-16, py-20, py-24
 
 **Container Strategy**:
-- Main content: max-w-4xl mx-auto (optimal reading width for posts)
-- Wide layout option: max-w-6xl for list views with sidebars
-- Mobile: px-4, Desktop: px-6
+- Main feed: max-w-5xl mx-auto (spacious)
+- Post detail: max-w-4xl
+- Mobile: px-6, Desktop: px-8
+- Full-width sections with inner max-w-7xl for hero areas
 
 ## Core Component Library
 
-### Navigation Header
-- Fixed top navigation with max-w-7xl container
-- Logo (Fisk University wordmark) aligned left
-- Center: Search bar with icon (w-full max-w-md)
-- Right: Notification bell icon with badge counter + user avatar dropdown
-- Height: h-16, border-b
-- Mobile: Hamburger menu, search icon only
+### Glassmorphic Navigation Header
+- Fixed, full-width with frosted glass effect (backdrop-blur-xl, bg-white/80 or bg-navy/80)
+- Height: h-20 md:h-24
+- Inner container: max-w-7xl, flex items-center justify-between, px-8
+- Left: Fisk wordmark (larger, prominent)
+- Center: Expanded search with icon, rounded-full, generous padding (px-6 py-3, w-full max-w-xl)
+- Right: Notification bell with animated badge + large avatar (h-10 w-10)
+- Subtle border-b with alpha channel
+- Mobile: Simplified with hamburger, search icon modal
 
-### Post Card (Main Feed)
-- Full-width cards with subtle border, rounded-lg
-- Compact layout: 
-  - Left column (w-12): Upvote button (vertical, icon + count stacked)
-  - Main content area: flex-1
-    - Header row: Anonymous/Username + timestamp + tag badges
-    - Title: text-xl font-semibold, line-clamp-2
-    - Description preview: text-base, line-clamp-3
-    - Thumbnail if image attached (h-32 w-48 object-cover rounded)
-    - Footer: Comment count, status badge (if SGA updated), inline admin dropdown (SGA only)
-- Spacing: p-4 inner padding, mb-4 between cards
+### Premium Post Card
+- Elevated glassmorphic card: backdrop-blur-lg, bg-white/60 or bg-cream/40, border with alpha
+- Generous padding: p-8 md:p-10
+- Rounded corners: rounded-2xl
+- Subtle shadow: shadow-xl
+- Layout:
+  - Left sidebar (w-16 md:w-20): Large upvote button vertical (icon h-8 w-8, bold count below)
+  - Main content (flex-1, space-y-4):
+    - Meta row: Avatar + username/anonymous + timestamp + tag pills
+    - Title: text-2xl md:text-3xl font-bold, no line clamp (show full)
+    - Description: text-lg leading-relaxed, line-clamp-4
+    - Image preview: h-48 md:h-64, rounded-xl, full-width
+    - Footer: Comment count (with icon), status badge (pill shape), admin dropdown
+- Spacing between cards: mb-8 md:mb-12
 
-### Post Detail View
-- Two-column desktop layout (sidebar + main)
-- Left sidebar (w-20): Centered upvote section (icon, count, visual feedback)
-- Main content (flex-1):
-  - Full title + full description
-  - Full-size image if attached (max-h-96, rounded-lg)
-  - Tags row
-  - Status badge (if set by SGA)
-  - SGA inline status dropdown (admins only)
-  - Metadata row: author, timestamp, view count
+### Post Detail Hero
+- Full-width header section with gradient overlay
+- Large title: text-4xl md:text-5xl font-bold
+- Spacious meta information row
+- Featured image: Full-width, max-h-[500px], object-cover
+- Floating upvote button (glassmorphic, positioned absolute left)
 
-### Comment Thread
-- Nested structure with left border indicators for depth
-- Each comment: pl-4 per nesting level (max 3 levels)
-- Comment card: p-4, rounded, border
-  - Mini upvote (horizontal: icon + count)
-  - Author + timestamp + anonymous badge
-  - Comment text
-  - Reply button + Edit/Delete (if own comment)
-- Spacing: space-y-4 between top-level comments
+### Premium Comment Thread
+- Each comment: glassmorphic card, p-6, rounded-xl, mb-6
+- Nesting: Left accent bar (w-1, gradient blue-to-gold), pl-8 per level
+- Mini upvote: Horizontal layout, gold when active
+- Generous line height for readability
+- Reply/Edit buttons as text links with hover states
+- Max nesting: 4 levels desktop, 2 levels mobile
 
-### Filter/Sort Bar
-- Sticky below header on scroll
-- Horizontal layout: 
-  - Sort dropdown (Most Recent, Most Upvoted, Trending)
-  - Tag filter chips (scrollable horizontal)
-  - SGA Status filter toggle
-- Height: h-12, border-b
+### Floating Action Button
+- Large, prominent "New Post" FAB (fixed bottom-right on desktop, bottom center on mobile)
+- Size: h-16 w-16 rounded-full
+- Glassmorphic with blue background, gold accent on hover
+- Shadow-2xl, scale animation on hover
 
-### Submit/Create Post Modal
-- Centered modal overlay (max-w-2xl)
-- Form fields vertically stacked (space-y-4):
-  - Title input (full width)
-  - Description textarea (h-40)
-  - Image upload dropzone (border-dashed, h-32, centered icon + text)
-  - Tag selection (multi-select dropdown or chip selector)
-  - Anonymous toggle checkbox
-- Action buttons row: Cancel + Submit Post
-- Modal padding: p-6
+### Filter Bar
+- Glassmorphic sticky bar below header
+- Horizontal scroll of filter chips: rounded-full, px-6 py-3, generous tap targets
+- Active state: blue background, gold border
+- Sort dropdown: Large, prominent
+- Height: h-16, generous spacing between elements
+
+### Submit Modal
+- Large centered modal: max-w-3xl, max-h-[90vh]
+- Glassmorphic backdrop: backdrop-blur-2xl
+- Inner card: p-12, space-y-8
+- Generous form fields: Input heights h-14, textarea h-48
+- Image dropzone: h-64, dashed border, prominent icon and CTA
+- Action buttons: Full-width on mobile, inline on desktop (h-12, px-8)
 
 ### Notification Panel
-- Slide-in panel from right (w-96)
-- Header: "Notifications" + Mark all read
-- Notification items: p-4 each, border-b
-  - Icon indicator (status change, new comment)
-  - Title + brief message
-  - Timestamp
-  - Unread indicator (dot or highlight)
-- Empty state: centered icon + message
+- Slide-in from right: w-full md:w-[480px]
+- Glassmorphic surface
+- Each notification: p-6, generous spacing
+- Large icons (h-12 w-12) with blue/gold colors
+- Unread: Subtle gold accent border
 
-### Tag System
-- Predefined tags rendered as rounded-full pills
-- Size: px-3 py-1, text-xs
-- Categories: Housing, Dining, Academics, Campus Safety, Facilities, Technology, Events, Other
-- Always visible in compact form, expandable to show all
+### Tag Pills
+- Large, tappable: px-4 py-2, rounded-full
+- Blue/gold color coding by category
+- Bold uppercase text
+- Animated hover/active states
 
-### Admin Controls (Inline)
-- Dropdown button on post card (only visible to SGA)
-- Options: Under Review, In Progress, Completed, Not Planned
-- Status renders as badge next to post title
-- Badge styles: rounded-full, px-3 py-1, text-xs, font-medium
+### Status Badges
+- Prominent pill shape: px-4 py-2, rounded-full
+- Gold for completed, blue for in-progress
+- Bold text, icon included
 
-### Empty States
-- Centered layout (max-w-md mx-auto)
-- Icon (large, heroicons outline style)
-- Heading: text-2xl, font-bold
-- Description: text-base
-- CTA button if applicable
+## Glassmorphic Effects
+- Headers/Navigation: backdrop-blur-xl, bg-white/80
+- Cards: backdrop-blur-lg, bg-white/60 or bg-cream/40
+- Modals: backdrop-blur-2xl on overlay, bg-white/90 on content
+- Floating elements: backdrop-blur-md with subtle borders (border-white/20)
+- All glass elements: Subtle border with alpha channel for definition
 
-### Authentication
-- Centered card (max-w-md)
-- Fisk University logo at top
-- Email input with @my.fisk.edu validation
-- "Send Magic Link" button
-- Minimal, focused design
+## Micro-Interactions
+- Upvote: Scale transform (scale-110), color shift to gold, spring animation (duration-300)
+- Card hover: Subtle lift (translate-y-[-4px]), enhanced shadow (duration-200)
+- Button press: Scale down (scale-95), immediate feedback
+- Status change: Fade in new badge, confetti animation for "Completed"
+- Notification badge: Gentle pulse, scale animation on new item
+- Image loading: Skeleton with shimmer effect
+- FAB: Rotate icon on hover, scale on click
 
-## Interaction Patterns
-
-**Voting**:
-- Click upvote arrow to toggle vote
-- Count updates immediately
-- Visual state change (filled vs outline)
-
-**Filtering**:
-- Multiple filters can be active simultaneously
-- Active filters shown as dismissible chips
-- Results update immediately
-
-**Status Updates (SGA)**:
-- Dropdown appears inline on hover/tap
-- Selection updates status badge immediately
-- Notification sent to post author
-
-**Image Upload**:
-- Drag-and-drop or click to browse
-- Preview thumbnail after selection
-- Validation messaging for file type/size
+## Images
+**Hero Section**: None - platform opens directly to feed for immediacy
+**Post Cards**: User-uploaded images, full-width within card, rounded-xl, aspect-ratio preserved, max-h-64
+**Empty States**: Illustration graphics (using heroicons composed into scenes), centered, large scale (h-48 w-48)
+**Profile Avatars**: Circular, multiple sizes (h-8 w-8 for meta, h-10 w-10 for nav, h-12 w-12 for detail)
+**Tag Icons**: Small decorative icons next to category tags (h-4 w-4)
 
 ## Mobile Responsive Strategy
 
-**Breakpoints**:
-- Mobile: base (single column, stacked navigation)
-- Tablet: md (maintain single column for readability)
-- Desktop: lg (sidebar + main content layouts)
+**Mobile-First Adaptations**:
+- Single column layouts, full-width cards
+- Upvote moves to card footer (horizontal)
+- Navigation: Bottom tab bar with large touch targets (h-16)
+- Filters: Full-screen modal overlay instead of bar
+- Generous touch targets: minimum h-12
+- FAB: Centered bottom, larger (h-14 w-14)
+- Comments: Stack replies with subtle indentation
+- Typography scales down one size (text-xl becomes text-lg)
+- Padding adjusts: p-8 becomes p-6
+- Modal: Full-screen on mobile
 
-**Mobile Adaptations**:
-- Post cards: Upvote moves to footer row
-- Navigation: Hamburger menu, icons only
-- Filters: Collapsible accordion
-- Comment nesting: Maximum 2 levels on mobile
-- Notification panel: Full-screen overlay instead of slide-in
-
-## Animation Guidelines
-Use sparingly for feedback only:
-- Upvote: scale on click (duration-150)
-- Status badge: fade in on update (duration-200)
-- Notification badge: subtle pulse for new items
-- Modal: fade + slide up entrance (duration-300)
-
-No scroll-triggered or decorative animations.
+**Breakpoints**: 
+- Mobile: base to md (< 768px)
+- Desktop: lg+ (≥ 1024px)

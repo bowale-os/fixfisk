@@ -1,4 +1,4 @@
-import { X, CheckCircle2, MessageSquare, AlertCircle } from "lucide-react";
+import { X, CheckCircle2, MessageSquare, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,13 @@ interface NotificationPanelProps {
 const notificationIcons = {
   status_update: CheckCircle2,
   comment: MessageSquare,
-  milestone: AlertCircle,
+  milestone: TrendingUp,
+};
+
+const notificationColors = {
+  status_update: "bg-primary/10 text-primary",
+  comment: "bg-accent text-accent-foreground",
+  milestone: "bg-secondary/20 text-secondary-foreground",
 };
 
 export function NotificationPanel({
@@ -46,14 +52,14 @@ export function NotificationPanel({
 
   return (
     <div
-      className="fixed right-0 top-0 h-full w-96 bg-background border-l shadow-xl z-50 flex flex-col"
+      className="fixed right-0 top-0 h-full w-full md:w-[480px] backdrop-blur-xl bg-white/95 dark:bg-background/95 border-l border-white/20 dark:border-white/10 shadow-2xl z-50 flex flex-col"
       data-testid="panel-notifications"
     >
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Notifications</h2>
+      <div className="flex items-center justify-between p-6 md:p-8 border-b border-white/20">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
           {unreadCount > 0 && (
-            <Badge variant="default" className="rounded-full" data-testid="badge-unread-count">
+            <Badge className="rounded-full bg-secondary text-secondary-foreground" data-testid="badge-unread-count">
               {unreadCount}
             </Badge>
           )}
@@ -62,18 +68,20 @@ export function NotificationPanel({
           variant="ghost"
           size="icon"
           onClick={onClose}
+          className="rounded-full"
           data-testid="button-close-panel"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </Button>
       </div>
 
       {unreadCount > 0 && (
-        <div className="px-4 py-2 border-b">
+        <div className="px-6 md:px-8 py-4 border-b border-white/20">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleMarkAllRead}
+            className="font-medium"
             data-testid="button-mark-all-read"
           >
             Mark all as read
@@ -83,47 +91,50 @@ export function NotificationPanel({
 
       <ScrollArea className="flex-1">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center px-4">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No notifications</h3>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col items-center justify-center h-full text-center px-8 py-20">
+            <div className="h-24 w-24 rounded-full bg-accent/50 flex items-center justify-center mb-6">
+              <CheckCircle2 className="h-12 w-12 text-muted-foreground" />
+            </div>
+            <h3 className="text-xl font-bold mb-3">No notifications</h3>
+            <p className="text-base text-muted-foreground max-w-sm">
               You're all caught up! We'll notify you when there's activity on
               your posts.
             </p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="divide-y divide-border/50">
             {notifications.map((notification) => {
               const Icon = notificationIcons[notification.type];
+              const colorClass = notificationColors[notification.type];
               return (
                 <div
                   key={notification.id}
-                  className={`p-4 cursor-pointer hover-elevate transition-colors ${
+                  className={`p-6 md:p-8 cursor-pointer hover-elevate transition-all ${
                     !notification.isRead ? "bg-primary/5" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification.id)}
                   data-testid={`notification-${notification.id}`}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     <div className="shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Icon className="h-5 w-5 text-primary" />
+                      <div className={`h-12 w-12 rounded-full ${colorClass} flex items-center justify-center`}>
+                        <Icon className="h-6 w-6" />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-base font-semibold">
                           {notification.title}
                         </p>
                         {!notification.isRead && (
-                          <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                          <div className="h-2.5 w-2.5 rounded-full bg-secondary shrink-0 mt-1.5" />
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         {notification.message}
                       </p>
                       {notification.postTitle && (
-                        <p className="text-xs text-primary font-medium">
+                        <p className="text-sm text-primary font-semibold">
                           {notification.postTitle}
                         </p>
                       )}

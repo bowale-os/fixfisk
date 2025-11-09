@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,13 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
 interface CreatePostDialogProps {
@@ -107,43 +100,45 @@ export function CreatePostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-create-post">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto backdrop-blur-2xl bg-white/95 dark:bg-background/95 border-white/20" data-testid="dialog-create-post">
         <DialogHeader>
-          <DialogTitle>Submit a Suggestion</DialogTitle>
+          <DialogTitle className="text-3xl font-bold tracking-tight">Submit a Suggestion</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+        <div className="space-y-8 pt-4">
+          <div className="space-y-3">
+            <Label htmlFor="title" className="text-base font-semibold">Title *</Label>
             <Input
               id="title"
               placeholder="Brief summary of the issue..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              className="h-14 text-lg rounded-xl"
               data-testid="input-title"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+          <div className="space-y-3">
+            <Label htmlFor="description" className="text-base font-semibold">Description *</Label>
             <Textarea
               id="description"
               placeholder="Provide more details about the issue..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={6}
+              rows={8}
+              className="text-lg leading-relaxed rounded-xl resize-none"
               data-testid="input-description"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Tags * (select all that apply)</Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Tags * (select all that apply)</Label>
+            <div className="flex flex-wrap gap-3">
               {availableTags.map((tag) => (
                 <Badge
                   key={tag}
                   variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  className="cursor-pointer rounded-full px-3 py-1.5 hover-elevate active-elevate-2"
+                  className="cursor-pointer rounded-full px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover-elevate active-elevate-2 transition-all"
                   onClick={() => toggleTag(tag)}
                   data-testid={`badge-tag-${tag.toLowerCase()}`}
                 >
@@ -153,20 +148,20 @@ export function CreatePostDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Image (optional)</Label>
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Image (optional)</Label>
             {imagePreview ? (
-              <div className="relative">
+              <div className="relative rounded-xl overflow-hidden">
                 <img
                   src={imagePreview}
                   alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-64 object-cover"
                   data-testid="img-preview"
                 />
                 <Button
                   size="icon"
                   variant="destructive"
-                  className="absolute top-2 right-2"
+                  className="absolute top-3 right-3 rounded-full shadow-lg"
                   onClick={removeImage}
                   data-testid="button-remove-image"
                 >
@@ -176,7 +171,7 @@ export function CreatePostDialog({
             ) : (
               <label
                 htmlFor="image-upload"
-                className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover-elevate active-elevate-2 transition-colors"
+                className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-border rounded-xl cursor-pointer hover-elevate active-elevate-2 transition-all backdrop-blur-sm bg-accent/50"
                 data-testid="label-image-upload"
               >
                 <input
@@ -187,30 +182,34 @@ export function CreatePostDialog({
                   onChange={handleImageChange}
                   data-testid="input-image"
                 />
-                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
+                <Upload className="h-12 w-12 text-muted-foreground mb-3" />
+                <p className="text-base font-medium text-muted-foreground">
                   Click to upload an image
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  PNG, JPG up to 10MB
                 </p>
               </label>
             )}
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3 p-4 rounded-xl bg-accent/30">
             <Checkbox
               id="anonymous"
               checked={isAnonymous}
               onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
               data-testid="checkbox-anonymous"
+              className="h-5 w-5"
             />
             <Label
               htmlFor="anonymous"
-              className="text-sm font-normal cursor-pointer"
+              className="text-base font-medium cursor-pointer"
             >
               Post anonymously
             </Label>
           </div>
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-3 pt-4">
             <Button
               onClick={handleSubmit}
               disabled={
@@ -218,7 +217,7 @@ export function CreatePostDialog({
                 !description.trim() ||
                 selectedTags.length === 0
               }
-              className="flex-1"
+              className="flex-1 h-14 text-lg rounded-full font-semibold shadow-lg hover:shadow-xl transition-all"
               data-testid="button-submit-post"
             >
               Submit Suggestion
@@ -226,6 +225,7 @@ export function CreatePostDialog({
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="h-14 px-8 rounded-full"
               data-testid="button-cancel"
             >
               Cancel
