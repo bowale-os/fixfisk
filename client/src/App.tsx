@@ -20,9 +20,27 @@ function FeedPage() {
   const { toast } = useToast();
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("trending");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showSGAOnly, setShowSGAOnly] = useState(false);
+  
+  const statusFilter = showSGAOnly ? "reviewing" : undefined;
   
   const { data: posts = [], refetch: refetchPosts } = useQuery<(Post & { authorEmail?: string })[]>({
-    queryKey: ["/api/posts"],
+    queryKey: ["/api/posts", { sortBy, tags: selectedTags, status: statusFilter }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("sortBy", sortBy);
+      if (selectedTags.length > 0) {
+        selectedTags.forEach(tag => params.append("tags", tag));
+      }
+      if (statusFilter) {
+        params.set("status", statusFilter);
+      }
+      const response = await fetch(`/api/posts?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch posts");
+      return response.json();
+    },
   });
   
   const createPostMutation = useMutation({
@@ -55,7 +73,9 @@ function FeedPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "/api/posts"
+      });
       toast({
         title: "Success",
         description: "Your post has been submitted!",
@@ -172,9 +192,9 @@ function FeedPage() {
         onLogout={logout}
       />
       <FilterBar
-        onSortChange={(sort) => console.log("Sort:", sort)}
-        onTagsChange={(tags) => console.log("Tags:", tags)}
-        onStatusFilterChange={(show) => console.log("SGA filter:", show)}
+        onSortChange={setSortBy}
+        onTagsChange={setSelectedTags}
+        onStatusFilterChange={setShowSGAOnly}
       />
       <main className="max-w-5xl mx-auto px-6 md:px-8 py-12 space-y-8 md:space-y-12">
         {posts.length === 0 ? (
