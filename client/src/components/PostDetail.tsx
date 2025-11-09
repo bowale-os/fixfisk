@@ -13,7 +13,7 @@ import {
 import { CommentThread } from "./CommentThread";
 import { useState } from "react";
 
-type PostStatus = "reviewing" | "in_progress" | "completed" | "not_planned" | null;
+type PostStatus = "pending" | "reviewing" | "in_progress" | "completed" | "wont_fix" | null;
 
 interface PostDetailProps {
   post: {
@@ -42,17 +42,19 @@ interface PostDetailProps {
 }
 
 const statusColors: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
   reviewing: "bg-muted text-muted-foreground",
   in_progress: "bg-primary/10 text-primary border-primary/20",
   completed: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-  not_planned: "bg-destructive/10 text-destructive border-destructive/20",
+  wont_fix: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const statusLabels: Record<string, string> = {
+  pending: "Pending",
   reviewing: "Under Review",
   in_progress: "In Progress",
   completed: "Completed",
-  not_planned: "Not Planned",
+  wont_fix: "Won't Fix",
 };
 
 export function PostDetail({
@@ -186,6 +188,9 @@ export function PostDetail({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleStatusChange("pending")}>
+                          Pending
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("reviewing")}>
                           Under Review
                         </DropdownMenuItem>
@@ -195,11 +200,8 @@ export function PostDetail({
                         <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
                           Completed
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange("not_planned")}>
-                          Not Planned
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(null)}>
-                          Clear Status
+                        <DropdownMenuItem onClick={() => handleStatusChange("wont_fix")}>
+                          Won't Fix
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

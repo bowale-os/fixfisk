@@ -2,6 +2,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { PostDetail } from "@/components/PostDetail";
 import { format } from "date-fns";
 import type { Post, Comment } from "@shared/schema";
@@ -20,6 +21,7 @@ export default function PostDetailPage() {
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Fetch post
   const { data: posts = [], isLoading: postLoading } = useQuery<EnrichedPost[]>({
@@ -102,6 +104,36 @@ export default function PostDetailPage() {
     },
   });
 
+  // Update post status (SGA admin only)
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return apiRequest("PATCH", `/api/posts/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      // Invalidate specific post detail query
+      queryClient.invalidateQueries({
+        queryKey: ["/api/posts", { postId: id }]
+      });
+      // Invalidate all post list queries
+      queryClient.invalidateQueries({
+        predicate: (query) => 
+          query.queryKey[0] === "/api/posts" && 
+          !query.queryKey.some(key => typeof key === "object" && key && "postId" in key)
+      });
+      toast({
+        title: "Status updated",
+        description: "Post status has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (postLoading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
@@ -120,7 +152,7 @@ export default function PostDetailPage() {
     timestamp: format(new Date(post.createdAt), "MMM d, yyyy 'at' h:mm a"),
     tags: post.tags || [],
     upvotes: post.upvoteCount,
-    status: post.status as "reviewing" | "in_progress" | "completed" | "not_planned" | null,
+    status: post.status as "pending" | "reviewing" | "in_progress" | "completed" | "wont_fix" | null,
     hasUpvoted: post.hasUpvoted,
     imageUrl: post.imageUrl || undefined,
   };
@@ -140,6 +172,7 @@ export default function PostDetailPage() {
     <PostDetail
       post={transformedPost}
       comments={transformedComments}
+      isAdmin={user?.isSGAAdmin || false}
       onBack={() => navigate("/")}
       onUpvote={() => votePostMutation.mutate()}
       onCommentUpvote={(commentId) => {
@@ -152,11 +185,7 @@ export default function PostDetailPage() {
         addCommentMutation.mutate({ content, isAnonymous })
       }
       onStatusChange={(status) => {
-        // TODO: Implement in Task 7 - SGA admin status controls
-        toast({
-          title: "Coming soon",
-          description: "Status updates will be available for SGA admins soon.",
-        });
+        updateStatusMutation.mutate(status as string);
       }}
     />
   );

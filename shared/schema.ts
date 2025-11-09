@@ -141,3 +141,10 @@ export const insertMagicLinkTokenSchema = createInsertSchema(magicLinkTokens).om
 
 export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
 export type InsertMagicLinkToken = z.infer<typeof insertMagicLinkTokenSchema>;
+
+export const updatePostStatusSchema = z.object({
+  status: z.enum(['pending', 'reviewing', 'in_progress', 'completed', 'wont_fix']),
+  sgaResponse: z.string().optional(),
+});
+
+export type UpdatePostStatus = z.infer<typeof updatePostStatusSchema>;

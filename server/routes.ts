@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCommentSchema } from "@shared/schema";
+import { insertCommentSchema, updatePostStatusSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 
@@ -18,6 +18,20 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ message: 'Authentication required' });
   }
+  next();
+}
+
+// Middleware to require SGA admin
+export async function requireSGAAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  const user = await storage.getUserById(req.session.userId);
+  if (!user || !user.isSGAAdmin) {
+    return res.status(403).json({ message: 'SGA admin access required' });
+  }
+  
   next();
 }
 
@@ -189,6 +203,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get posts error:', error);
       res.status(500).json({ message: 'Failed to get posts' });
+    }
+  });
+
+  app.patch('/api/posts/:postId/status', requireSGAAdmin, async (req: Request, res: Response) => {
+    try {
+      const { postId } = req.params;
+      
+      // Validate request body
+      const { status, sgaResponse } = updatePostStatusSchema.parse(req.body);
+      
+      // Update post status
+      const updatedPost = await storage.updatePost(postId, {
+        status,
+        sgaResponse,
+      });
+      
+      if (!updatedPost) {
+        return res.status(404).json({ message: 'Post not found' });
+      }
+      
+      // TODO: Create notification for post author in Task 8
+      
+      res.json(updatedPost);
+    } catch (error) {
+      console.error('Update status error:', error);
+      res.status(500).json({ message: 'Failed to update post status' });
     }
   });
 
