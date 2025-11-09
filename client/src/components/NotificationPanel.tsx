@@ -52,14 +52,14 @@ export function NotificationPanel({
 
   return (
     <div
-      className="fixed right-0 top-0 h-full w-full md:w-[480px] backdrop-blur-xl bg-white/95 dark:bg-background/95 border-l border-white/20 dark:border-white/10 shadow-2xl z-50 flex flex-col"
+      className="fixed right-0 top-0 h-full w-full md:w-[520px] backdrop-blur-2xl bg-white/97 dark:bg-background/97 border-l-2 border-white/30 dark:border-white/20 shadow-2xl z-50 flex flex-col"
       data-testid="panel-notifications"
     >
-      <div className="flex items-center justify-between p-6 md:p-8 border-b border-white/20">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
+      <div className="flex items-center justify-between p-8 md:p-10 border-b-2 border-white/30 dark:border-white/20 bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="flex items-center gap-4">
+          <h2 className="text-3xl font-bold tracking-tight">Notifications</h2>
           {unreadCount > 0 && (
-            <Badge className="rounded-full bg-secondary text-secondary-foreground" data-testid="badge-unread-count">
+            <Badge className="rounded-full bg-secondary text-secondary-foreground px-3 py-1.5 text-base font-bold shadow-lg" data-testid="badge-unread-count">
               {unreadCount}
             </Badge>
           )}
@@ -68,20 +68,19 @@ export function NotificationPanel({
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="rounded-full"
+          className="rounded-full h-12 w-12 hover:bg-destructive/10"
           data-testid="button-close-panel"
         >
-          <X className="h-5 w-5" />
+          <X className="h-6 w-6" />
         </Button>
       </div>
 
       {unreadCount > 0 && (
-        <div className="px-6 md:px-8 py-4 border-b border-white/20">
+        <div className="px-8 md:px-10 py-5 border-b border-white/20">
           <Button
             variant="ghost"
-            size="sm"
             onClick={handleMarkAllRead}
-            className="font-medium"
+            className="font-semibold text-base h-10 px-4 rounded-xl"
             data-testid="button-mark-all-read"
           >
             Mark all as read
@@ -91,54 +90,54 @@ export function NotificationPanel({
 
       <ScrollArea className="flex-1">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-8 py-20">
-            <div className="h-24 w-24 rounded-full bg-accent/50 flex items-center justify-center mb-6">
-              <CheckCircle2 className="h-12 w-12 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center h-full text-center px-10 py-24">
+            <div className="h-28 w-28 rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center mb-8 shadow-xl">
+              <CheckCircle2 className="h-14 w-14 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-bold mb-3">No notifications</h3>
-            <p className="text-base text-muted-foreground max-w-sm">
+            <h3 className="text-2xl font-bold mb-4">No notifications</h3>
+            <p className="text-lg text-muted-foreground max-w-sm leading-relaxed">
               You're all caught up! We'll notify you when there's activity on
               your posts.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border/50">
+          <div className="divide-y-2 divide-border/30">
             {notifications.map((notification) => {
               const Icon = notificationIcons[notification.type];
               const colorClass = notificationColors[notification.type];
               return (
                 <div
                   key={notification.id}
-                  className={`p-6 md:p-8 cursor-pointer hover-elevate transition-all ${
+                  className={`p-8 md:p-10 cursor-pointer hover-elevate transition-all ${
                     !notification.isRead ? "bg-primary/5" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification.id)}
                   data-testid={`notification-${notification.id}`}
                 >
-                  <div className="flex gap-4">
+                  <div className="flex gap-5">
                     <div className="shrink-0">
-                      <div className={`h-12 w-12 rounded-full ${colorClass} flex items-center justify-center`}>
-                        <Icon className="h-6 w-6" />
+                      <div className={`h-14 w-14 rounded-2xl ${colorClass} flex items-center justify-center shadow-lg ring-2 ring-white/50 dark:ring-white/10`}>
+                        <Icon className="h-7 w-7" />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="text-base font-semibold">
+                    <div className="flex-1 min-w-0 space-y-2.5">
+                      <div className="flex items-start justify-between gap-4">
+                        <p className="text-lg font-bold leading-tight">
                           {notification.title}
                         </p>
                         {!notification.isRead && (
-                          <div className="h-2.5 w-2.5 rounded-full bg-secondary shrink-0 mt-1.5" />
+                          <div className="h-3 w-3 rounded-full bg-secondary shrink-0 mt-1.5 shadow-lg animate-pulse" />
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-base text-muted-foreground leading-relaxed">
                         {notification.message}
                       </p>
                       {notification.postTitle && (
-                        <p className="text-sm text-primary font-semibold">
+                        <p className="text-base text-primary font-bold mt-3">
                           {notification.postTitle}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground font-medium mt-3">
                         {notification.timestamp}
                       </p>
                     </div>
