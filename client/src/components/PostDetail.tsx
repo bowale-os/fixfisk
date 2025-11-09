@@ -34,6 +34,7 @@ interface PostDetailProps {
   canEdit?: boolean;
   onBack?: () => void;
   onUpvote?: () => void;
+  onCommentUpvote?: (commentId: string) => void;
   onStatusChange?: (status: PostStatus) => void;
   onAddComment?: (content: string, isAnonymous: boolean) => void;
   onEdit?: () => void;
@@ -61,6 +62,7 @@ export function PostDetail({
   canEdit = false,
   onBack,
   onUpvote,
+  onCommentUpvote,
   onStatusChange,
   onAddComment,
   onEdit,
@@ -262,7 +264,7 @@ export function PostDetail({
                 </div>
 
                 <div className="pt-4">
-                  <CommentThread comments={comments} />
+                  <CommentThread comments={comments} onUpvote={onCommentUpvote} />
                 </div>
               </div>
             </div>

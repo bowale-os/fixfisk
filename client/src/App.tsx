@@ -5,7 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
+import PostDetailPage from "@/pages/post-detail";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Header } from "@/components/Header";
 import { FilterBar } from "@/components/FilterBar";
 import { PostCard } from "@/components/PostCard";
@@ -18,6 +20,7 @@ import type { Post } from "@shared/schema";
 function FeedPage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string>("trending");
@@ -232,7 +235,7 @@ function FeedPage() {
               status={post.status as any}
               hasUpvoted={(post as any).hasUpvoted || false}
               isAdmin={user?.isSGAAdmin || false}
-              onClick={() => console.log("View post:", post.id)}
+              onClick={() => navigate(`/posts/${post.id}`)}
               imageUrl={post.imageUrl || undefined}
               onUpvote={() => voteMutation.mutate({ postId: post.id, isUpvoted: (post as any).hasUpvoted || false })}
             />
@@ -322,6 +325,9 @@ function Router() {
             }}
           />
         )}
+      </Route>
+      <Route path="/posts/:id">
+        {user ? <PostDetailPage /> : <AuthPage onSendMagicLink={sendMagicLink} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

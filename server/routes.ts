@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertCommentSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 
@@ -229,6 +230,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: 'Vote removed successfully' });
     } catch (error) {
       console.error('Unvote error:', error);
+      res.status(500).json({ message: 'Failed to remove vote' });
+    }
+  });
+
+  // Comment routes
+  app.post('/api/posts/:postId/comments', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { postId } = req.params;
+      const userId = req.session.userId!;
+      
+      // Validate request body
+      const validatedData = insertCommentSchema.parse({
+        ...req.body,
+        userId,
+        postId,
+      });
+      
+      // Create comment and increment counter
+      const comment = await storage.addCommentToPost(validatedData);
+      
+      res.json(comment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid comment data', errors: error.errors });
+      }
+      console.error('Comment creation error:', error);
+      res.status(500).json({ message: 'Failed to create comment' });
+    }
+  });
+
+  app.get('/api/posts/:postId/comments', async (req: Request, res: Response) => {
+    try {
+      const { postId } = req.params;
+      const userId = req.session.userId;
+      
+      // Get comments for post
+      const comments = await storage.getCommentsByPost(postId);
+      
+      // Enrich with author email and hasUpvoted flag
+      const enrichedComments = await Promise.all(
+        comments.map(async (comment) => {
+          // Get author email
+          let authorEmail: string | undefined;
+          if (!comment.isAnonymous) {
+            const author = await storage.getUser(comment.userId);
+            authorEmail = author?.email;
+          }
+          
+          // Check if current user has upvoted (if authenticated)
+          let hasUpvoted = false;
+          if (userId) {
+            const vote = await storage.getVote(userId, undefined, comment.id);
+            hasUpvoted = !!vote;
+          }
+          
+          return {
+            ...comment,
+            authorEmail,
+            hasUpvoted,
+          };
+        })
+      );
+      
+      res.json(enrichedComments);
+    } catch (error) {
+      console.error('Failed to get comments:', error);
+      res.status(500).json({ message: 'Failed to get comments' });
+    }
+  });
+
+  // Comment voting routes
+  app.post('/api/comments/:commentId/vote', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.session.userId!;
+      
+      // Add vote - let database unique constraint enforce one vote per user
+      await storage.addVoteToComment(userId, commentId);
+      
+      res.json({ message: 'Vote added successfully' });
+    } catch (error: any) {
+      // Handle unique constraint violation (user already voted)
+      if (
+        error.code === '23505' ||
+        error.code === 'SQLITE_CONSTRAINT' ||
+        error.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        error.message?.includes('duplicate') ||
+        error.message?.includes('UNIQUE constraint failed')
+      ) {
+        return res.json({ message: 'Vote already exists' });
+      }
+      console.error('Comment vote error:', error);
+      res.status(500).json({ message: 'Failed to add vote' });
+    }
+  });
+
+  app.delete('/api/comments/:commentId/vote', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.session.userId!;
+      
+      // Remove vote - idempotent operation
+      await storage.removeVoteFromComment(userId, commentId);
+      
+      res.json({ message: 'Vote removed successfully' });
+    } catch (error) {
+      console.error('Comment unvote error:', error);
       res.status(500).json({ message: 'Failed to remove vote' });
     }
   });
