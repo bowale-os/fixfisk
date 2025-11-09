@@ -90,6 +90,21 @@ function FeedPage() {
     },
   });
 
+  const voteMutation = useMutation({
+    mutationFn: async ({ postId, isUpvoted }: { postId: string; isUpvoted: boolean }) => {
+      if (isUpvoted) {
+        return apiRequest("DELETE", `/api/posts/${postId}/vote`);
+      } else {
+        return apiRequest("POST", `/api/posts/${postId}/vote`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "/api/posts"
+      });
+    },
+  });
+
   const mockPosts = [
     {
       id: "1",
@@ -215,10 +230,11 @@ function FeedPage() {
               upvotes={post.upvoteCount}
               commentCount={post.commentCount}
               status={post.status as any}
-              hasUpvoted={false}
+              hasUpvoted={(post as any).hasUpvoted || false}
               isAdmin={user?.isSGAAdmin || false}
               onClick={() => console.log("View post:", post.id)}
               imageUrl={post.imageUrl || undefined}
+              onUpvote={() => voteMutation.mutate({ postId: post.id, isUpvoted: (post as any).hasUpvoted || false })}
             />
           ))
         )}

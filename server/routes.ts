@@ -164,6 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/posts', async (req: Request, res: Response) => {
     try {
       const { tags, status, sortBy, limit } = req.query;
+      const userId = req.session.userId;
       
       const posts = await storage.getPosts({
         tags: tags ? (typeof tags === 'string' ? [tags] : tags as string[]) : undefined,
@@ -172,10 +173,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: limit ? parseInt(limit as string) : undefined,
       });
       
-      res.json(posts);
+      // Add hasUpvoted flag for authenticated users
+      if (userId) {
+        const postsWithVotes = await Promise.all(
+          posts.map(async (post) => {
+            const vote = await storage.getVote(userId, post.id);
+            return { ...post, hasUpvoted: !!vote };
+          })
+        );
+        return res.json(postsWithVotes);
+      }
+      
+      res.json(posts.map(post => ({ ...post, hasUpvoted: false })));
     } catch (error) {
       console.error('Get posts error:', error);
       res.status(500).json({ message: 'Failed to get posts' });
+    }
+  });
+
+  app.post('/api/posts/:postId/vote', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { postId } = req.params;
+      const userId = req.session.userId!;
+      
+      // Add vote - let database unique constraint enforce one vote per user
+      await storage.addVoteToPost(userId, postId);
+      
+      res.json({ message: 'Vote added successfully' });
+    } catch (error: any) {
+      // Handle unique constraint violation (user already voted)
+      // PostgreSQL: error code 23505
+      // SQLite: error code SQLITE_CONSTRAINT or SQLITE_CONSTRAINT_UNIQUE
+      if (
+        error.code === '23505' ||
+        error.code === 'SQLITE_CONSTRAINT' ||
+        error.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+        error.message?.includes('duplicate') ||
+        error.message?.includes('UNIQUE constraint failed')
+      ) {
+        return res.json({ message: 'Vote already exists' });
+      }
+      console.error('Vote error:', error);
+      res.status(500).json({ message: 'Failed to add vote' });
+    }
+  });
+
+  app.delete('/api/posts/:postId/vote', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { postId } = req.params;
+      const userId = req.session.userId!;
+      
+      // Remove vote - idempotent operation
+      await storage.removeVoteFromPost(userId, postId);
+      
+      res.json({ message: 'Vote removed successfully' });
+    } catch (error) {
+      console.error('Unvote error:', error);
+      res.status(500).json({ message: 'Failed to remove vote' });
     }
   });
 
