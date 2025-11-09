@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, integer, check, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, integer, check, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -25,6 +25,8 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   statusCheck: check("status_check", sql`${table.status} IN ('pending', 'reviewing', 'in_progress', 'completed', 'wont_fix')`),
+  upvoteCountCheck: check("upvote_count_check", sql`${table.upvoteCount} >= 0`),
+  commentCountCheck: check("comment_count_check", sql`${table.commentCount} >= 0`),
   userIdIdx: index("posts_user_id_idx").on(table.userId),
   createdAtIdx: index("posts_created_at_idx").on(table.createdAt),
   statusIdx: index("posts_status_idx").on(table.status),
@@ -40,6 +42,7 @@ export const comments = pgTable("comments", {
   upvoteCount: integer("upvote_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
+  upvoteCountCheck: check("comment_upvote_count_check", sql`${table.upvoteCount} >= 0`),
   postIdIdx: index("comments_post_id_idx").on(table.postId),
   createdAtIdx: index("comments_created_at_idx").on(table.createdAt),
 }));
@@ -52,8 +55,8 @@ export const votes = pgTable("votes", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   exactlyOneTargetCheck: check("exactly_one_target", sql`(${table.postId} IS NOT NULL AND ${table.commentId} IS NULL) OR (${table.postId} IS NULL AND ${table.commentId} IS NOT NULL)`),
-  uniquePostVoteIdx: index("unique_post_vote_idx").on(table.userId, table.postId).where(sql`${table.commentId} IS NULL`),
-  uniqueCommentVoteIdx: index("unique_comment_vote_idx").on(table.userId, table.commentId).where(sql`${table.postId} IS NULL`),
+  uniquePostVote: uniqueIndex("unique_post_vote").on(table.userId, table.postId).where(sql`${table.commentId} IS NULL`),
+  uniqueCommentVote: uniqueIndex("unique_comment_vote").on(table.userId, table.commentId).where(sql`${table.postId} IS NULL`),
 }));
 
 export const notifications = pgTable("notifications", {
