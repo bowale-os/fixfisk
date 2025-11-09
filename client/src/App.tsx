@@ -17,6 +17,16 @@ import { AuthPage } from "@/components/AuthPage";
 import { useAuth } from "@/hooks/useAuth";
 import type { Post } from "@shared/schema";
 
+type Notification = {
+  id: string;
+  type: "status_update" | "comment" | "milestone";
+  title: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+  postTitle?: string;
+};
+
 function FeedPage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -45,6 +55,17 @@ function FeedPage() {
       return response.json();
     },
   });
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications"],
+    queryFn: async () => {
+      const response = await fetch("/api/notifications");
+      if (!response.ok) throw new Error("Failed to fetch notifications");
+      return response.json();
+    },
+  });
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
   
   const createPostMutation = useMutation({
     mutationFn: async (data: {
@@ -199,10 +220,25 @@ function FeedPage() {
     },
   ];
 
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/notifications/mark-all-read"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: async (notificationId: string) =>
+      apiRequest("PATCH", `/api/notifications/${notificationId}/read`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent/30 via-background to-accent/20">
       <Header
-        unreadCount={0}
+        unreadCount={unreadCount}
         userEmail={user?.email || ""}
         isAdmin={user?.isSGAAdmin || false}
         onNotificationClick={() => setNotificationsOpen(true)}
@@ -249,10 +285,13 @@ function FeedPage() {
       />
       {notificationsOpen && (
         <NotificationPanel
-          notifications={[]}
+          notifications={notifications.map(n => ({
+            ...n,
+            timestamp: new Date(n.createdAt as any).toLocaleString(),
+          }))}
           onClose={() => setNotificationsOpen(false)}
-          onMarkAllRead={() => console.log("Mark all read")}
-          onNotificationClick={(id) => console.log("Notification clicked:", id)}
+          onMarkAllRead={() => markAllReadMutation.mutate()}
+          onNotificationClick={(id) => markReadMutation.mutate(id)}
         />
       )}
     </div>

@@ -223,7 +223,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Post not found' });
       }
       
-      // TODO: Create notification for post author in Task 8
+      // Create notification for post author (if not anonymous and not their own post)
+      if (updatedPost.userId !== req.session.userId) {
+        await storage.createNotification({
+          userId: updatedPost.userId,
+          type: 'status_update',
+          postId: updatedPost.id,
+          title: 'Status Updated',
+          message: `SGA updated your post status to: ${status.replace('_', ' ')}`,
+        });
+      }
       
       res.json(updatedPost);
     } catch (error) {
@@ -289,6 +298,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create comment and increment counter
       const comment = await storage.addCommentToPost(validatedData);
+      
+      // Get post to notify author
+      const post = await storage.getPost(postId);
+      
+      // Create notification for post author (if not commenting on own post)
+      if (post && post.userId !== userId) {
+        await storage.createNotification({
+          userId: post.userId,
+          type: 'comment',
+          postId: post.id,
+          commentId: comment.id,
+          title: 'New Comment',
+          message: `Someone commented on your post: "${post.title}"`,
+        });
+      }
       
       res.json(comment);
     } catch (error) {
@@ -378,6 +402,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Comment unvote error:', error);
       res.status(500).json({ message: 'Failed to remove vote' });
+    }
+  });
+
+  // Notification routes
+  app.get('/api/notifications', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const notifications = await storage.getNotificationsByUser(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error('Get notifications error:', error);
+      res.status(500).json({ message: 'Failed to get notifications' });
+    }
+  });
+
+  app.patch('/api/notifications/:id/read', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.markNotificationRead(id);
+      res.json({ message: 'Notification marked as read' });
+    } catch (error) {
+      console.error('Mark notification read error:', error);
+      res.status(500).json({ message: 'Failed to mark notification as read' });
+    }
+  });
+
+  app.post('/api/notifications/mark-all-read', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      await storage.markAllNotificationsRead(userId);
+      res.json({ message: 'All notifications marked as read' });
+    } catch (error) {
+      console.error('Mark all notifications read error:', error);
+      res.status(500).json({ message: 'Failed to mark all notifications as read' });
     }
   });
 
