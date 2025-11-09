@@ -24,7 +24,7 @@ export interface IStorage {
   
   // Posts
   getPost(id: string): Promise<Post | undefined>;
-  getPosts(options?: { tags?: string[]; status?: string; sortBy?: string; limit?: number }): Promise<Post[]>;
+  getPosts(options?: { tags?: string[]; status?: string; sortBy?: string; limit?: number }): Promise<(Post & { authorEmail?: string })[]>;
   getPostsByUser(userId: string): Promise<Post[]>;
   createPost(post: InsertPost): Promise<Post>;
   updatePost(id: string, updates: Partial<Post>): Promise<Post | undefined>;
@@ -91,8 +91,14 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getPosts(options?: { tags?: string[]; status?: string; sortBy?: string; limit?: number }): Promise<Post[]> {
-    let query = db.select().from(posts);
+  async getPosts(options?: { tags?: string[]; status?: string; sortBy?: string; limit?: number }): Promise<(Post & { authorEmail?: string })[]> {
+    let query = db
+      .select({
+        post: posts,
+        authorEmail: users.email,
+      })
+      .from(posts)
+      .leftJoin(users, eq(posts.userId, users.id));
     
     const conditions = [];
     
@@ -123,7 +129,12 @@ export class DbStorage implements IStorage {
       query = query.limit(options.limit) as any;
     }
     
-    return await query;
+    const results = await query;
+    
+    return results.map(({ post, authorEmail }) => ({
+      ...post,
+      authorEmail: post.isAnonymous ? undefined : authorEmail || undefined,
+    }));
   }
 
   async getPostsByUser(userId: string): Promise<Post[]> {

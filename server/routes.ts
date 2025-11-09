@@ -135,6 +135,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post routes
+  app.post('/api/posts', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { title, content, tags, isAnonymous, imageUrl } = req.body;
+      
+      if (!title || !content || !tags || !Array.isArray(tags) || tags.length === 0) {
+        return res.status(400).json({ message: 'Title, content, and at least one tag are required' });
+      }
+      
+      const post = await storage.createPost({
+        userId: req.session.userId!,
+        title,
+        content,
+        tags,
+        isAnonymous: isAnonymous || false,
+        imageUrl,
+        status: 'pending',
+      });
+      
+      res.json(post);
+    } catch (error) {
+      console.error('Create post error:', error);
+      res.status(500).json({ message: 'Failed to create post' });
+    }
+  });
+
+  app.get('/api/posts', async (req: Request, res: Response) => {
+    try {
+      const { tags, status, sortBy, limit } = req.query;
+      
+      const posts = await storage.getPosts({
+        tags: tags ? (typeof tags === 'string' ? [tags] : tags as string[]) : undefined,
+        status: typeof status === 'string' ? status : undefined,
+        sortBy: typeof sortBy === 'string' ? sortBy : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+      
+      res.json(posts);
+    } catch (error) {
+      console.error('Get posts error:', error);
+      res.status(500).json({ message: 'Failed to get posts' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
