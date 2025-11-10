@@ -303,40 +303,27 @@ function Router() {
   const { toast } = useToast();
   const [location, setLocation] = useState(window.location.pathname);
 
-  // Handle magic link verification
+  // Handle authentication callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const authStatus = params.get('auth');
     
-    if (token) {
-      fetch(`/api/auth/verify?token=${token}`)
-        .then(async (res) => {
-          if (res.ok) {
-            await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-            toast({
-              title: "Welcome!",
-              description: "You've successfully logged in.",
-            });
-            window.history.replaceState({}, '', '/');
-            setLocation('/');
-          } else {
-            const data = await res.json();
-            toast({
-              title: "Error",
-              description: data.message || "Invalid or expired magic link",
-              variant: "destructive",
-            });
-            window.history.replaceState({}, '', '/');
-            setLocation('/');
-          }
-        })
-        .catch(() => {
-          toast({
-            title: "Error",
-            description: "Failed to verify magic link",
-            variant: "destructive",
-          });
-        });
+    if (authStatus === 'success') {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "Welcome!",
+        description: "You've successfully logged in.",
+      });
+      window.history.replaceState({}, '', '/');
+      setLocation('/');
+    } else if (authStatus === 'error') {
+      toast({
+        title: "Error",
+        description: "Failed to verify magic link. Please try again.",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, '', '/');
+      setLocation('/');
     }
   }, [toast]);
 

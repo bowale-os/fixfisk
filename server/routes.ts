@@ -5,6 +5,7 @@ import { insertCommentSchema, updatePostStatusSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { Resend } from 'resend';
+import { supabase } from './supabase';
 
 // Email validation schema for @my.fisk.edu
 const emailSchema = z.object({
@@ -28,7 +29,7 @@ export async function requireSGAAdmin(req: Request, res: Response, next: NextFun
     return res.status(401).json({ message: 'Authentication required' });
   }
   
-  const user = await storage.getUserById(req.session.userId);
+  const user = await storage.getUser(req.session.userId);
   if (!user || !user.isSGAAdmin) {
     return res.status(403).json({ message: 'SGA admin access required' });
   }
@@ -49,47 +50,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = emailSchema.parse(req.body);
       const normalizedEmail = email.toLowerCase();
       
-      // Clean up expired tokens
-      await storage.deleteExpiredTokens();
-      
-      // Generate magic link token (valid for 15 minutes)
-      const token = generateToken();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-      
-      await storage.createMagicLinkToken({
+      // Use Supabase Auth to send magic link
+      const { data, error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
-        token,
-        expiresAt,
+        options: {
+          emailRedirectTo: `${req.protocol}://${req.get('host')}/api/auth/callback`,
+        },
       });
       
-      // In development, log the magic link
-      // In production, send via email service (SendGrid/Resend)
-      const magicLink = `${req.protocol}://${req.get('host')}/api/auth/verify?token=${token}`;
-      console.log('\n🔗 Magic Link for', normalizedEmail, ':\n', magicLink, '\n');
-      const apiKey = process.env.RESEND_API_KEY;
-      const from = process.env.MAGIC_LINK_FROM;
-      if (apiKey && from) {
-        try {
-          const subject = 'Your Fisk Forum sign-in link';
-          const html = `<p>Click to sign in:</p><p><a href="${magicLink}">${magicLink}</a></p><p>This link expires in 15 minutes.</p>`;
-          const resend = new Resend(apiKey);
-          const { error } = await resend.emails.send({
-            from,
-            to: normalizedEmail,
-            subject,
-            html,
-          });
-          if (error) {
-            console.error('Failed to send magic link email:', error);
-          }
-        } catch (err) {
-          console.error('Email send error:', err);
-        }
+      if (error) {
+        console.error('Supabase magic link error:', error);
+        return res.status(500).json({ message: 'Failed to send magic link' });
       }
+      
+      console.log('\n🔗 Magic Link sent to', normalizedEmail, 'via Supabase Auth\n');
       
       res.json({ 
         message: 'Magic link sent! Check your email.',
-        ...(process.env.NODE_ENV === 'development' && { magicLink }) // Include link in dev
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -100,55 +77,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/verify', async (req: Request, res: Response) => {
+  // Supabase auth callback route
+  app.get('/api/auth/callback', async (req: Request, res: Response) => {
     try {
-      const { token } = req.query;
+      const { token_hash, type } = req.query;
       
-      if (!token || typeof token !== 'string') {
-        return res.status(400).json({ message: 'Invalid token' });
+      if (!token_hash || typeof token_hash !== 'string') {
+        return res.redirect('/?auth=error');
+      }
+
+      // Verify the OTP token with Supabase
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash,
+        type: type === 'magiclink' ? 'magiclink' : 'email',
+      });
+      
+      if (error || !data.user) {
+        console.error('Supabase verify error:', error);
+        return res.redirect('/?auth=error');
       }
       
-      const magicToken = await storage.getMagicLinkToken(token);
-      
-      if (!magicToken) {
-        return res.status(400).json({ message: 'Invalid or expired token' });
+      const email = data.user.email;
+      if (!email) {
+        return res.redirect('/?auth=error');
       }
       
-      if (new Date() > magicToken.expiresAt) {
-        await storage.deleteMagicLinkToken(token);
-        return res.status(400).json({ message: 'Token expired' });
-      }
-      
-      // Find or create user
-      let user = await storage.getUserByEmail(magicToken.email);
+      // Find or create user in our database
+      let user = await storage.getUserByEmail(email);
       if (!user) {
-        user = await storage.createUser({ email: magicToken.email });
+        user = await storage.createUser({ email });
       }
-      
-      // Delete used token
-      await storage.deleteMagicLinkToken(token);
       
       // Create session
       req.session.userId = user.id;
-
-      // If the request expects HTML (clicked from email), redirect to the app
-      const wantsHTML = req.accepts(["html", "json"]) === "html" || req.query.redirect === "1";
-      if (wantsHTML) {
-        return res.redirect(303, "/?auth=success");
-      }
-
-      // Default: JSON response for API clients
-      res.json({ 
-        message: 'Authentication successful',
-        user: {
-          id: user.id,
-          email: user.email,
-          isSGAAdmin: user.isSGAAdmin,
-        }
-      });
+      
+      // Redirect to app with success
+      res.redirect('/?auth=success');
     } catch (error) {
-      console.error('Verify token error:', error);
-      res.status(500).json({ message: 'Authentication failed' });
+      console.error('Auth callback error:', error);
+      res.redirect('/?auth=error');
     }
   });
 
