@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import PostDetailPage from "@/pages/post-detail";
+import AuthCallback from "@/pages/auth-callback";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Header } from "@/components/Header";
@@ -287,7 +288,7 @@ function FeedPage() {
         <NotificationPanel
           notifications={notifications.map(n => ({
             ...n,
-            timestamp: new Date(n.createdAt as any).toLocaleString(),
+            timestamp: new Date(n.timestamp).toLocaleString(),
           }))}
           onClose={() => setNotificationsOpen(false)}
           onMarkAllRead={() => markAllReadMutation.mutate()}
@@ -303,41 +304,71 @@ function Router() {
   const { toast } = useToast();
   const [location, setLocation] = useState(window.location.pathname);
 
-  // Handle magic link verification
+  // Handle authentication callback - check both query params and hash fragments
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    
-    if (token) {
-      fetch(`/api/auth/verify?token=${token}`)
-        .then(async (res) => {
-          if (res.ok) {
-            await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    async function handleAuth() {
+      // Check for hash fragments (Supabase magic link tokens)
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const params = new URLSearchParams(hash);
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        
+        if (access_token) {
+          try {
+            // Send tokens to backend for verification
+            await apiRequest('POST', '/api/auth/verify', {
+              access_token,
+              refresh_token,
+            });
+            
+            // Clear hash and show success
+            window.history.replaceState({}, '', '/');
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
             toast({
               title: "Welcome!",
               description: "You've successfully logged in.",
             });
-            window.history.replaceState({}, '', '/');
             setLocation('/');
-          } else {
-            const data = await res.json();
+            return;
+          } catch (error) {
+            console.error('Auth verification error:', error);
+            window.history.replaceState({}, '', '/');
             toast({
               title: "Error",
-              description: data.message || "Invalid or expired magic link",
+              description: "Failed to verify magic link. Please try again.",
               variant: "destructive",
             });
-            window.history.replaceState({}, '', '/');
             setLocation('/');
+            return;
           }
-        })
-        .catch(() => {
-          toast({
-            title: "Error",
-            description: "Failed to verify magic link",
-            variant: "destructive",
-          });
+        }
+      }
+      
+      // Check for query params (success/error redirects)
+      const params = new URLSearchParams(window.location.search);
+      const authStatus = params.get('auth');
+      
+      if (authStatus === 'success') {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        toast({
+          title: "Welcome!",
+          description: "You've successfully logged in.",
         });
+        window.history.replaceState({}, '', '/');
+        setLocation('/');
+      } else if (authStatus === 'error') {
+        toast({
+          title: "Error",
+          description: "Failed to verify magic link. Please try again.",
+          variant: "destructive",
+        });
+        window.history.replaceState({}, '', '/');
+        setLocation('/');
+      }
     }
+    
+    handleAuth();
   }, [toast]);
 
   if (isLoading) {
@@ -350,6 +381,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/">
         {user ? (
           <FeedPage />
