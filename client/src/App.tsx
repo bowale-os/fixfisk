@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import PostDetailPage from "@/pages/post-detail";
+import AuthCallback from "@/pages/auth-callback";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Header } from "@/components/Header";
@@ -287,7 +288,7 @@ function FeedPage() {
         <NotificationPanel
           notifications={notifications.map(n => ({
             ...n,
-            timestamp: new Date(n.createdAt as any).toLocaleString(),
+            timestamp: new Date(n.timestamp).toLocaleString(),
           }))}
           onClose={() => setNotificationsOpen(false)}
           onMarkAllRead={() => markAllReadMutation.mutate()}
@@ -337,6 +338,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/">
         {user ? (
           <FeedPage />

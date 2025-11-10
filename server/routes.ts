@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data, error } = await supabaseAnon.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
-          emailRedirectTo: `${req.protocol}://${req.get('host')}/api/auth/callback`,
+          emailRedirectTo: `${req.protocol}://${req.get('host')}/auth/callback`,
         },
       });
       
@@ -77,45 +77,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Supabase auth callback route
-  app.get('/api/auth/callback', async (req: Request, res: Response) => {
+  // Supabase auth verification endpoint - called by frontend after extracting hash tokens
+  app.post('/api/auth/verify', async (req: Request, res: Response) => {
     try {
-      const { token_hash, type } = req.query;
+      const { access_token, refresh_token } = req.body;
       
-      if (!token_hash || typeof token_hash !== 'string') {
-        return res.redirect('/?auth=error');
+      if (!access_token || typeof access_token !== 'string') {
+        return res.status(400).json({ message: 'Invalid access token' });
       }
 
-      // Verify the OTP token with Supabase admin client (server-side verification)
-      const { data, error } = await supabaseAdmin.auth.verifyOtp({
-        token_hash,
-        type: type === 'magiclink' ? 'magiclink' : 'email',
-      });
+      // Verify the access token with Supabase admin client
+      const { data, error } = await supabaseAdmin.auth.getUser(access_token);
       
       if (error || !data.user) {
-        console.error('Supabase verify error:', error);
-        return res.redirect('/?auth=error');
+        console.error('Supabase token verification error:', error);
+        return res.status(401).json({ message: 'Invalid or expired token' });
       }
       
       const email = data.user.email;
       if (!email) {
-        return res.redirect('/?auth=error');
+        return res.status(400).json({ message: 'No email associated with token' });
+      }
+      
+      // Validate email domain
+      if (!email.toLowerCase().endsWith('@my.fisk.edu')) {
+        return res.status(403).json({ message: 'Email must be from @my.fisk.edu domain' });
       }
       
       // Find or create user in our database
       let user = await storage.getUserByEmail(email);
       if (!user) {
         user = await storage.createUser({ email });
+        console.log('✨ Created new user:', email);
       }
       
       // Create session
       req.session.userId = user.id;
       
-      // Redirect to app with success
-      res.redirect('/?auth=success');
+      console.log('✅ User authenticated:', email);
+      
+      res.json({ 
+        message: 'Authentication successful',
+        user: {
+          id: user.id,
+          email: user.email,
+          isSGAAdmin: user.isSGAAdmin,
+        }
+      });
     } catch (error) {
-      console.error('Auth callback error:', error);
-      res.redirect('/?auth=error');
+      console.error('Auth verification error:', error);
+      res.status(500).json({ message: 'Authentication failed' });
     }
   });
 
