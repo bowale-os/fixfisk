@@ -50,11 +50,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = emailSchema.parse(req.body);
       const normalizedEmail = email.toLowerCase();
       
-      // Get the correct redirect URL - use Replit domain in production, fallback to request host in dev
-      const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
-      const host = replitDomain || req.get('host');
-      const protocol = replitDomain ? 'https' : req.protocol;
-      const redirectUrl = `${protocol}://${host}/auth/callback`;
+      // Get the correct redirect URL - prefer production .replit.app URL, then dev domain, then request host
+      const productionUrl = process.env.REPL_SLUG && process.env.REPL_OWNER 
+        ? `https://fixfisk-${process.env.REPL_OWNER}.replit.app`
+        : null;
+      const devDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
+      
+      const host = productionUrl || (devDomain ? `https://${devDomain}` : `${req.protocol}://${req.get('host')}`);
+      const redirectUrl = `${host}/auth/callback`;
       
       console.log('🔗 Sending magic link with redirect URL:', redirectUrl);
       
