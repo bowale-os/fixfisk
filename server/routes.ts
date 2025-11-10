@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertCommentSchema, updatePostStatusSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import { z } from "zod";
+import { Resend } from 'resend';
 
 // Email validation schema for @my.fisk.edu
 const emailSchema = z.object({
@@ -65,6 +66,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In production, send via email service (SendGrid/Resend)
       const magicLink = `${req.protocol}://${req.get('host')}/api/auth/verify?token=${token}`;
       console.log('\n🔗 Magic Link for', normalizedEmail, ':\n', magicLink, '\n');
+      const apiKey = process.env.RESEND_API_KEY;
+      const from = process.env.MAGIC_LINK_FROM;
+      if (apiKey && from) {
+        try {
+          const subject = 'Your Fisk Forum sign-in link';
+          const html = `<p>Click to sign in:</p><p><a href="${magicLink}">${magicLink}</a></p><p>This link expires in 15 minutes.</p>`;
+          const resend = new Resend(apiKey);
+          const { error } = await resend.emails.send({
+            from,
+            to: normalizedEmail,
+            subject,
+            html,
+          });
+          if (error) {
+            console.error('Failed to send magic link email:', error);
+          }
+        } catch (err) {
+          console.error('Email send error:', err);
+        }
+      }
       
       res.json({ 
         message: 'Magic link sent! Check your email.',
@@ -109,7 +130,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create session
       req.session.userId = user.id;
-      
+
+      // If the request expects HTML (clicked from email), redirect to the app
+      const wantsHTML = req.accepts(["html", "json"]) === "html" || req.query.redirect === "1";
+      if (wantsHTML) {
+        return res.redirect(303, "/?auth=success");
+      }
+
+      // Default: JSON response for API clients
       res.json({ 
         message: 'Authentication successful',
         user: {
