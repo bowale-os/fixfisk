@@ -50,11 +50,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = emailSchema.parse(req.body);
       const normalizedEmail = email.toLowerCase();
       
+      // Get the correct redirect URL - use Replit domain in production, fallback to request host in dev
+      const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
+      const host = replitDomain || req.get('host');
+      const protocol = replitDomain ? 'https' : req.protocol;
+      const redirectUrl = `${protocol}://${host}/auth/callback`;
+      
+      console.log('🔗 Sending magic link with redirect URL:', redirectUrl);
+      
       // Use Supabase Auth with anon key to send magic link (user-facing operation)
       const { data, error } = await supabaseAnon.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
-          emailRedirectTo: `${req.protocol}://${req.get('host')}/auth/callback`,
+          emailRedirectTo: redirectUrl,
         },
       });
       
