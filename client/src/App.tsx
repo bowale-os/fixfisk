@@ -304,28 +304,71 @@ function Router() {
   const { toast } = useToast();
   const [location, setLocation] = useState(window.location.pathname);
 
-  // Handle authentication callback
+  // Handle authentication callback - check both query params and hash fragments
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authStatus = params.get('auth');
-    
-    if (authStatus === 'success') {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({
-        title: "Welcome!",
-        description: "You've successfully logged in.",
-      });
-      window.history.replaceState({}, '', '/');
-      setLocation('/');
-    } else if (authStatus === 'error') {
-      toast({
-        title: "Error",
-        description: "Failed to verify magic link. Please try again.",
-        variant: "destructive",
-      });
-      window.history.replaceState({}, '', '/');
-      setLocation('/');
+    async function handleAuth() {
+      // Check for hash fragments (Supabase magic link tokens)
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const params = new URLSearchParams(hash);
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        
+        if (access_token) {
+          try {
+            // Send tokens to backend for verification
+            await apiRequest('POST', '/api/auth/verify', {
+              access_token,
+              refresh_token,
+            });
+            
+            // Clear hash and show success
+            window.history.replaceState({}, '', '/');
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            toast({
+              title: "Welcome!",
+              description: "You've successfully logged in.",
+            });
+            setLocation('/');
+            return;
+          } catch (error) {
+            console.error('Auth verification error:', error);
+            window.history.replaceState({}, '', '/');
+            toast({
+              title: "Error",
+              description: "Failed to verify magic link. Please try again.",
+              variant: "destructive",
+            });
+            setLocation('/');
+            return;
+          }
+        }
+      }
+      
+      // Check for query params (success/error redirects)
+      const params = new URLSearchParams(window.location.search);
+      const authStatus = params.get('auth');
+      
+      if (authStatus === 'success') {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        toast({
+          title: "Welcome!",
+          description: "You've successfully logged in.",
+        });
+        window.history.replaceState({}, '', '/');
+        setLocation('/');
+      } else if (authStatus === 'error') {
+        toast({
+          title: "Error",
+          description: "Failed to verify magic link. Please try again.",
+          variant: "destructive",
+        });
+        window.history.replaceState({}, '', '/');
+        setLocation('/');
+      }
     }
+    
+    handleAuth();
   }, [toast]);
 
   if (isLoading) {
