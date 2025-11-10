@@ -302,7 +302,7 @@ function FeedPage() {
 function Router() {
   const { user, isLoading, sendMagicLink } = useAuth();
   const { toast } = useToast();
-  const [location, setLocation] = useState(window.location.pathname);
+  const [, navigate] = useLocation();
 
   // Handle authentication callback - check both query params and hash fragments
   useEffect(() => {
@@ -329,7 +329,7 @@ function Router() {
               title: "Welcome!",
               description: "You've successfully logged in.",
             });
-            setLocation('/');
+            navigate('/');
             return;
           } catch (error) {
             console.error('Auth verification error:', error);
@@ -339,7 +339,7 @@ function Router() {
               description: "Failed to verify magic link. Please try again.",
               variant: "destructive",
             });
-            setLocation('/');
+            navigate('/');
             return;
           }
         }
@@ -356,7 +356,7 @@ function Router() {
           description: "You've successfully logged in.",
         });
         window.history.replaceState({}, '', '/');
-        setLocation('/');
+        navigate('/');
       } else if (authStatus === 'error') {
         toast({
           title: "Error",
@@ -364,7 +364,7 @@ function Router() {
           variant: "destructive",
         });
         window.history.replaceState({}, '', '/');
-        setLocation('/');
+        navigate('/');
       }
     }
     

@@ -12,7 +12,9 @@ export function useAuth() {
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/auth/me");
+        const response = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
         if (!response.ok) {
           return null;
         }
