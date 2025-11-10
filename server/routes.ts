@@ -5,7 +5,7 @@ import { insertCommentSchema, updatePostStatusSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { Resend } from 'resend';
-import { supabase } from './supabase';
+import { supabaseAnon, supabaseAdmin } from './supabase';
 
 // Email validation schema for @my.fisk.edu
 const emailSchema = z.object({
@@ -50,8 +50,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = emailSchema.parse(req.body);
       const normalizedEmail = email.toLowerCase();
       
-      // Use Supabase Auth to send magic link
-      const { data, error } = await supabase.auth.signInWithOtp({
+      // Use Supabase Auth with anon key to send magic link (user-facing operation)
+      const { data, error } = await supabaseAnon.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
           emailRedirectTo: `${req.protocol}://${req.get('host')}/api/auth/callback`,
@@ -86,8 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect('/?auth=error');
       }
 
-      // Verify the OTP token with Supabase
-      const { data, error } = await supabase.auth.verifyOtp({
+      // Verify the OTP token with Supabase admin client (server-side verification)
+      const { data, error } = await supabaseAdmin.auth.verifyOtp({
         token_hash,
         type: type === 'magiclink' ? 'magiclink' : 'email',
       });
