@@ -55,7 +55,6 @@ function CommentItem({
 
   const handleReply = () => {
     if (replyContent.trim()) {
-      console.log(`Replying to comment ${comment.id}: ${replyContent}`);
       onReply?.(comment.id, replyContent);
       setReplyContent("");
       setShowReply(false);
@@ -64,22 +63,20 @@ function CommentItem({
 
   const handleEdit = () => {
     if (editContent.trim()) {
-      console.log(`Editing comment ${comment.id}: ${editContent}`);
       onEdit?.(comment.id, editContent);
       setIsEditing(false);
     }
   };
 
   const handleDelete = () => {
-    console.log(`Deleting comment ${comment.id}`);
     onDelete?.(comment.id);
   };
 
   return (
     <div className="space-y-4">
       <Card className="p-4" data-testid={`card-comment-${comment.id}`}>
-        <div className="flex gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex gap-4">
+          <div className="flex items-center gap-2 mr-2">
             <Button
               size="icon"
               variant={localUpvoted ? "default" : "ghost"}

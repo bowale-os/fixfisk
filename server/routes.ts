@@ -1,8 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { insertCommentSchema, updatePostStatusSchema } from "@shared/schema";
-import { z } from "zod";
+import { any, z } from "zod";
 import { supabaseAnon, supabaseAdmin } from './supabase';
+import { upload } from './multer';
 
 // Email validation schema for @my.fisk.edu
 const emailSchema = z.object({
@@ -191,39 +192,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post routes
-  app.post('/api/posts', requireAuth, async (req: Request, res: Response) => {
+  app.post('/api/posts', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    console.log('Request body:', req.body);
+    console.log('Request files:', req.file);
+
+    // 1. Parse FormData fields
+    const { title, content, isAnonymous, tags } = req.body;
+    
+    // 2. Parse tags (they come as a JSON string)
+    let parsedTags: string[] = [];
     try {
-      const { title, content, tags, isAnonymous, imageUrl } = req.body;
-      
-      if (!title || !content || !tags || !Array.isArray(tags) || tags.length === 0) {
-        return res.status(400).json({ message: 'Title, content, and at least one tag are required' });
+      parsedTags = JSON.parse(tags);
+      if (!Array.isArray(parsedTags)) {
+        throw new Error('Tags must be an array');
       }
-      
-      const { data: post, error } = await supabaseAdmin
-        .from('posts')
-        .insert({
-          user_id: req.session.userId!,
-          title,
-          content,
-          tags,
-          is_anonymous: isAnonymous || false,
-          image_url: imageUrl,
-          status: 'pending',
-        })
-        .select()
-        .single();
-        
-      if (error) {
-        console.error('Create post error:', error);
-        return res.status(500).json({ message: 'Failed to create post' });
-      }
-      
-      res.json(post);
     } catch (error) {
-      console.error('Create post error:', error);
-      res.status(500).json({ message: 'Failed to create post' });
+      console.error('Error parsing tags:', error);
+      return res.status(400).json({ 
+        message: 'Invalid tags format. Must be a JSON array of strings' 
+      });
     }
-  });
+
+    console.log('Raw tags:', tags);
+    console.log('Parsed tags:', parsedTags);
+
+    // 3. Validate required fields
+    if (!title || !content || parsedTags.length === 0) {
+      return res.status(400).json({ 
+        message: 'Title, content, and at least one tag are required' 
+      });
+    }
+
+    // 4. Handle image upload if present
+    let imageUrl = null;
+    if (req.file) {
+      try {
+        const fileName = `${Date.now()}-${req.file.originalname}`;
+        const fileBuffer = req.file.buffer;
+        const fileMimeType = req.file.mimetype;
+
+        console.log('Starting image upload process...');
+        console.log('File details:', { 
+          fileName, 
+          size: fileBuffer.length, 
+          mimeType: fileMimeType 
+        });
+
+        // Debug: Log Supabase client configuration (without sensitive data)
+        console.log('Supabase URL:', process.env.SUPABASE_URL?.substring(0, 30) + '...');
+        console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+        // Debug: List all available buckets
+        console.log('Attempting to list all buckets...');
+        const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
+        
+        if (listError) {
+          console.error('Error listing buckets:', listError);
+          throw listError;
+        }
+        
+        console.log('Available buckets:', buckets ? buckets.map(b => b.name) : 'No buckets found');
+        
+        // Check if our target bucket exists
+        const targetBucket = 'posts-images';
+        const bucketExists = buckets?.some(bucket => bucket.name === targetBucket);
+        console.log(`Bucket '${targetBucket}' exists:`, bucketExists);
+        
+        if (!bucketExists) {
+          const errorMsg = `Bucket '${targetBucket}' not found. Please create it in your Supabase dashboard.`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+        
+        // Upload to Supabase Storage
+        console.log(`Attempting to upload to bucket '${targetBucket}'...`);
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from(targetBucket)
+          .upload(fileName, fileBuffer, {
+            contentType: fileMimeType,
+            upsert: false
+          });
+          
+        if (uploadError) {
+          console.error('Upload error details:', {
+            message: uploadError.message,
+            status: uploadError.status,
+            statusCode: uploadError.statusCode
+          });
+          throw uploadError;
+        }
+
+        // Get public URL
+        console.log('Upload successful, generating public URL...');
+        const { data: { publicUrl } } = await supabaseAdmin.storage
+          .from(targetBucket)
+          .getPublicUrl(fileName);
+
+        imageUrl = publicUrl;
+        console.log('Image uploaded successfully. Public URL:', publicUrl);
+      } catch (error) {
+        console.error('Image upload failed with error:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        return res.status(500).json({ 
+          message: 'Failed to process image upload',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+    }
+    
+    // 5. Create post record
+    console.log('Creating post record...');
+    const { data: post, error: dbError } = await supabaseAdmin
+      .from('posts')
+      .insert({
+        user_id: req.session.userId!,
+        title: title.trim(),
+        content: content.trim(),
+        tags: parsedTags,
+        is_anonymous: isAnonymous === 'true',
+        image_url: imageUrl,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      throw dbError;
+    }
+
+    console.log('Post created successfully:', post);
+    return res.status(201).json(post);
+
+  } catch (error:any) {
+    console.error('Create post error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      message: 'Failed to create post',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
   app.get('/api/posts', async (req: Request, res: Response) => {
     try {
