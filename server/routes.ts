@@ -14,7 +14,9 @@ const emailSchema = z.object({
 
 // Middleware to require authentication
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  console.log('requireAuth check', { sessionId: req.sessionID, userId: req.session.userId });
   if (!req.session.userId) {
+    console.warn('requireAuth blocked: no userId', { sessionId: req.sessionID });
     return res.status(401).json({ message: 'Authentication required' });
   }
   next();
@@ -28,11 +30,11 @@ export async function requireSGAAdmin(req: Request, res: Response, next: NextFun
   
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('isSGAAdmin')
+    .select('is_sga_admin')
     .eq('id', req.session.userId)
     .single();
     
-  if (!user || !user.isSGAAdmin) {
+  if (!user || !user.is_sga_admin) {
     return res.status(403).json({ message: 'SGA admin access required' });
   }
   
@@ -51,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Make sure to include the full URL with protocol
       const host = req.get('host') || 'localhost:5000';
       const protocol = req.protocol || 'http';
-      const redirectTo = `${protocol}://${host}/api/auth/callback`;
+      const redirectTo = `${protocol}://${host}/auth/callback`;
       
       console.log('Sending magic link with redirect:', redirectTo);
       
@@ -80,33 +82,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/callback', async (req: Request, res: Response) => {
+  app.post('/api/auth/verify', async (req: Request, res: Response) => {
     try {
-      // When user clicks magic link, Supabase redirects here with these params
-      const token_hash = req.query.token_hash as string;
-      const type = req.query.type as string;
+      // Frontend sends access_token in POST body after hash parsing
+      const { access_token } = req.body as { access_token?: string };
       
-      console.log('Auth callback received:', { token_hash: !!token_hash, type });
+      console.log('Auth verify received:', { has_access_token: !!access_token });
       
-      if (!token_hash) {
-        console.error('No token_hash in callback');
-        return res.redirect('/?auth=failed');
-      }
-
-      if (type !== 'magiclink') {
-        console.error('Invalid type:', type);
-        return res.redirect('/?auth=failed');
+      if (!access_token) {
+        return res.status(400).json({ message: 'No access token provided' });
       }
       
-      // Verify the token with Supabase using admin client
-      const { data, error } = await supabaseAdmin.auth.verifyOtp({
-        token_hash,
-        type: 'magiclink'
-      });
+      // Validate the token with Supabase using admin client
+      const { data, error } = await supabaseAdmin.auth.getUser(access_token);
       
       if (error || !data.user) {
-        console.error('Supabase verification error:', error);
-        return res.redirect('/?auth=failed');
+        console.error('Supabase token validation error:', error);
+        return res.status(401).json({ message: 'Invalid or expired token' });
       }
       
       const supabaseUser = data.user;
@@ -130,29 +122,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .insert({ 
             id: supabaseUserId,
             email,
-            isSGAAdmin: false 
+            is_sga_admin: false 
           })
           .select()
           .single();
           
         if (createError) {
           console.error('Error creating user:', createError);
-          return res.redirect('/?auth=error');
+          return res.status(500).json({ message: 'Failed to create user' });
         }
         user = newUser;
       }
       
-      // Create session
-      req.session.userId = user.id;
-      
-      console.log('Session created, redirecting to success');
-      
-      // Redirect to the app with success message
-      return res.redirect('/?auth=success');
+      // Create session (regenerate to prevent fixation), then save and respond
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('Session regenerate error:', err);
+          return res.status(500).json({ message: 'Session error' });
+        }
+        req.session.userId = user.id;
+        req.session.save((err2) => {
+          if (err2) {
+            console.error('Session save error:', err2);
+            return res.status(500).json({ message: 'Session save error' });
+          }
+          console.log('saved session', { sessionId: req.sessionID, userId: req.session.userId });
+          console.log('Session created, responding success');
+          return res.json({ message: 'Authenticated' });
+        });
+      });
       
     } catch (error) {
       console.error('Verify token error:', error);
-      return res.redirect('/?auth=error');
+      return res.status(500).json({ message: 'Authentication error' });
     }
   });
 
@@ -167,16 +169,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/me', requireAuth, async (req: Request, res: Response) => {
     try {
+      console.log('auth/me request', { sessionId: req.sessionID, userId: req.session.userId });
       const { data: user, error } = await supabaseAdmin
         .from('users')
-        .select('id, email, isSGAAdmin')
+        .select('id, email, is_sga_admin')
         .eq('id', req.session.userId!)
         .single();
+      console.log('auth/me db result', { hasError: !!error, hasUser: !!user });
         
       if (error || !user) {
-        return res.status(404).json({ message: 'User not found' });
+        console.warn('auth/me not found', { sessionUserId: req.session.userId, dbError: error });
+        return res.status(401).json({ message: 'User not found' });
       }
       
+      console.log('auth/me success', { id: user.id, email: user.email });
       res.json(user);
     } catch (error) {
       console.error('Get user error:', error);
@@ -196,12 +202,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: post, error } = await supabaseAdmin
         .from('posts')
         .insert({
-          userId: req.session.userId!,
+          user_id: req.session.userId!,
           title,
           content,
           tags,
-          isAnonymous: isAnonymous || false,
-          imageUrl,
+          is_anonymous: isAnonymous || false,
+          image_url: imageUrl,
           status: 'pending',
         })
         .select()
@@ -226,10 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let query = supabaseAdmin
         .from('posts')
-        .select(`
-          *,
-          users!posts_userId_fkey(email)
-        `);
+        .select('*');
       
       // Filter by tags if provided
       if (tags) {
@@ -253,12 +256,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'Failed to get posts' });
       }
       
-      // Process posts with author email
-      let posts = postsData.map(post => ({
-        ...post,
-        authorEmail: post.isAnonymous ? undefined : post.users?.email,
-        users: undefined // Remove the joined user data
+      // Normalize DB rows (snake_case) to client shape (camelCase)
+      let posts = postsData.map((post: any) => ({
+        id: post.id,
+        userId: post.user_id,
+        title: post.title,
+        content: post.content,
+        tags: post.tags,
+        isAnonymous: post.is_anonymous,
+        status: post.status,
+        sgaResponse: post.sga_response,
+        upvoteCount: post.upvote_count,
+        commentCount: post.comment_count,
+        createdAt: post.created_at,
+        imageUrl: post.image_url,
+        authorEmail: undefined,
       }));
+      
+      // Enrich posts with author email in a single batched query (avoid FK join dependency)
+      const nonAnonymousUserIds = Array.from(new Set(posts.filter(p => !p.isAnonymous).map(p => p.userId)));
+      if (nonAnonymousUserIds.length > 0) {
+        const { data: authors, error: authorsError } = await supabaseAdmin
+          .from('users')
+          .select('id, email')
+          .in('id', nonAnonymousUserIds);
+        if (!authorsError && authors) {
+          const emailById = new Map<string, string>(authors.map((a: any) => [a.id, a.email]));
+          posts = posts.map(p => p.isAnonymous ? p : { ...p, authorEmail: emailById.get(p.userId) });
+        }
+      }
+      
+      // Enrich posts with accurate comment counts by fetching comment rows and counting in code
+      const postIds = posts.map(p => p.id);
+      if (postIds.length > 0) {
+        const { data: commentRows, error: countError } = await supabaseAdmin
+          .from('comments')
+          .select('post_id, id')
+          .in('post_id', postIds);
+        if (!countError && commentRows) {
+          const countByPostId = new Map<string, number>();
+          for (const row of commentRows as any[]) {
+            countByPostId.set(row.post_id, (countByPostId.get(row.post_id) || 0) + 1);
+          }
+          posts = posts.map(p => ({ ...p, commentCount: countByPostId.get(p.id) ?? p.commentCount ?? 0 }));
+        }
+      }
       
       // Sort posts
       if (sortBy === 'recent') {
@@ -287,8 +329,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { data: vote } = await supabaseAdmin
               .from('votes')
               .select('*')
-              .eq('userId', userId)
-              .eq('postId', post.id)
+              .eq('user_id', userId)
+              .eq('post_id', post.id)
               .maybeSingle();
             return { ...post, hasUpvoted: !!vote };
           })
@@ -313,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update post status
       const { data: updatedPost, error } = await supabaseAdmin
         .from('posts')
-        .update({ status, sgaResponse })
+        .update({ status, sga_response: sgaResponse })
         .eq('id', postId)
         .select()
         .single();
@@ -323,13 +365,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create notification for post author (if not their own post)
-      if (updatedPost.userId !== req.session.userId) {
+      if (updatedPost.user_id !== req.session.userId) {
         await supabaseAdmin
           .from('notifications')
           .insert({
-            userId: updatedPost.userId,
+            user_id: updatedPost.user_id,
             type: 'status_update',
-            postId: updatedPost.id,
+            post_id: updatedPost.id,
             title: 'Status Updated',
             message: `SGA updated your post status to: ${status.replace('_', ' ')}`,
           });
@@ -351,8 +393,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: existingVote } = await supabaseAdmin
         .from('votes')
         .select('*')
-        .eq('userId', userId)
-        .eq('postId', postId)
+        .eq('user_id', userId)
+        .eq('post_id', postId)
         .maybeSingle();
         
       if (existingVote) {
@@ -362,15 +404,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add vote
       const { error: voteError } = await supabaseAdmin
         .from('votes')
-        .insert({ userId, postId });
+        .insert({ user_id: userId, post_id: postId });
         
       if (voteError) {
         console.error('Vote error:', voteError);
         return res.status(500).json({ message: 'Failed to add vote' });
       }
       
-      // Increment post upvotes
-      await supabaseAdmin.rpc('increment_post_upvotes', { post_id: postId });
+      // Increment post upvotes with fallback if RPC is unavailable
+      const { error: incrementRpcError } = await supabaseAdmin.rpc('increment_post_upvotes', { post_id: postId });
+      if (incrementRpcError) {
+        // Fallback: recompute upvotes from votes table and persist
+        const { count } = await supabaseAdmin
+          .from('votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', postId)
+          .is('comment_id', null);
+        if (typeof count === 'number') {
+          await supabaseAdmin
+            .from('posts')
+            .update({ upvote_count: count })
+            .eq('id', postId);
+        }
+      }
       
       res.json({ message: 'Vote added successfully' });
     } catch (error: any) {
@@ -388,16 +444,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { error: voteError } = await supabaseAdmin
         .from('votes')
         .delete()
-        .eq('userId', userId)
-        .eq('postId', postId);
+        .eq('user_id', userId)
+        .eq('post_id', postId);
         
       if (voteError) {
         console.error('Unvote error:', voteError);
         return res.status(500).json({ message: 'Failed to remove vote' });
       }
       
-      // Decrement post upvotes
-      await supabaseAdmin.rpc('decrement_post_upvotes', { post_id: postId });
+      // Decrement post upvotes with fallback if RPC is unavailable
+      const { error: decrementRpcError } = await supabaseAdmin.rpc('decrement_post_upvotes', { post_id: postId });
+      if (decrementRpcError) {
+        // Fallback: recompute upvotes from votes table and persist
+        const { count } = await supabaseAdmin
+          .from('votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', postId)
+          .is('comment_id', null);
+        if (typeof count === 'number') {
+          await supabaseAdmin
+            .from('posts')
+            .update({ upvote_count: count })
+            .eq('id', postId);
+        }
+      }
       
       res.json({ message: 'Vote removed successfully' });
     } catch (error) {
@@ -422,7 +492,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create comment
       const { data: comment, error } = await supabaseAdmin
         .from('comments')
-        .insert(validatedData)
+        .insert({
+          post_id: validatedData.postId,
+          user_id: validatedData.userId,
+          content: validatedData.content,
+          is_anonymous: validatedData.isAnonymous ?? false,
+        })
         .select()
         .single();
         
@@ -431,8 +506,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'Failed to create comment' });
       }
       
-      // Increment comment count
-      await supabaseAdmin.rpc('increment_post_comments', { post_id: postId });
+      // Ensure comment_count stays accurate without relying on DB RPCs
+      // Recalculate current comment count for the post and persist it
+      const { count: newCount } = await supabaseAdmin
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId);
+      if (typeof newCount === 'number') {
+        await supabaseAdmin
+          .from('posts')
+          .update({ comment_count: newCount })
+          .eq('id', postId);
+      }
       
       // Get post to notify author
       const { data: post } = await supabaseAdmin
@@ -442,14 +527,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .single();
       
       // Create notification for post author (if not commenting on own post)
-      if (post && post.userId !== userId) {
+      if (post && post.user_id !== userId) {
         await supabaseAdmin
           .from('notifications')
           .insert({
-            userId: post.userId,
+            user_id: post.user_id,
             type: 'comment',
-            postId: post.id,
-            commentId: comment.id,
+            post_id: post.id,
+            comment_id: comment.id,
             title: 'New Comment',
             message: `Someone commented on your post: "${post.title}"`,
           });
@@ -474,8 +559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: comments, error } = await supabaseAdmin
         .from('comments')
         .select('*')
-        .eq('postId', postId)
-        .order('createdAt', { ascending: true });
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
         
       if (error) {
         console.error('Failed to get comments:', error);
@@ -487,11 +572,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comments.map(async (comment) => {
           // Get author email
           let authorEmail: string | undefined;
-          if (!comment.isAnonymous) {
+          if (!comment.is_anonymous) {
             const { data: author } = await supabaseAdmin
               .from('users')
               .select('email')
-              .eq('id', comment.userId)
+              .eq('id', comment.user_id)
               .single();
             authorEmail = author?.email;
           }
@@ -502,8 +587,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { data: vote } = await supabaseAdmin
               .from('votes')
               .select('*')
-              .eq('userId', userId)
-              .eq('commentId', comment.id)
+              .eq('user_id', userId)
+              .eq('comment_id', comment.id)
               .maybeSingle();
             hasUpvoted = !!vote;
           }
@@ -516,7 +601,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      res.json(enrichedComments);
+      // Normalize snake_case DB fields to camelCase for API response
+      const normalized = enrichedComments.map((c: any) => ({
+        id: c.id,
+        postId: c.post_id,
+        userId: c.user_id,
+        content: c.content,
+        isAnonymous: c.is_anonymous,
+        createdAt: c.created_at,
+        upvoteCount: c.upvote_count,
+        authorEmail: c.authorEmail,
+        hasUpvoted: c.hasUpvoted,
+      }));
+      res.json(normalized);
     } catch (error) {
       console.error('Failed to get comments:', error);
       res.status(500).json({ message: 'Failed to get comments' });
@@ -533,8 +630,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: existingVote } = await supabaseAdmin
         .from('votes')
         .select('*')
-        .eq('userId', userId)
-        .eq('commentId', commentId)
+        .eq('user_id', userId)
+        .eq('comment_id', commentId)
         .maybeSingle();
         
       if (existingVote) {
@@ -544,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add vote
       const { error: voteError } = await supabaseAdmin
         .from('votes')
-        .insert({ userId, commentId });
+        .insert({ user_id: userId, comment_id: commentId });
         
       if (voteError) {
         console.error('Comment vote error:', voteError);
@@ -570,8 +667,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { error: voteError } = await supabaseAdmin
         .from('votes')
         .delete()
-        .eq('userId', userId)
-        .eq('commentId', commentId);
+        .eq('user_id', userId)
+        .eq('comment_id', commentId);
         
       if (voteError) {
         console.error('Comment unvote error:', voteError);
@@ -596,8 +693,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data: notifications, error } = await supabaseAdmin
         .from('notifications')
         .select('*')
-        .eq('userId', userId)
-        .order('createdAt', { ascending: false });
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
         
       if (error) {
         console.error('Get notifications error:', error);
@@ -617,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await supabaseAdmin
         .from('notifications')
-        .update({ isRead: true })
+        .update({ is_read: true })
         .eq('id', id);
         
       res.json({ message: 'Notification marked as read' });
@@ -633,9 +730,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await supabaseAdmin
         .from('notifications')
-        .update({ isRead: true })
-        .eq('userId', userId)
-        .eq('isRead', false);
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
         
       res.json({ message: 'All notifications marked as read' });
     } catch (error) {

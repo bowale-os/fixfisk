@@ -68,6 +68,17 @@ export default function PostDetailPage() {
       return apiRequest("POST", `/api/posts/${id}/comments`, data);
     },
     onSuccess: () => {
+      // Optimistically bump commentCount in ALL cached "/api/posts" queries (lists and detail variants)
+      queryClient.setQueriesData(
+        { predicate: (query) => query.queryKey[0] === "/api/posts" },
+        (oldData: EnrichedPost[] | undefined) => {
+          if (!Array.isArray(oldData)) return oldData;
+          return oldData.map((p) =>
+            p.id === id ? ({ ...p, commentCount: (p.commentCount || 0) + 1 } as any) : p
+          );
+        }
+      );
+
       queryClient.invalidateQueries({
         queryKey: ["/api/posts", id, "comments"],
       });

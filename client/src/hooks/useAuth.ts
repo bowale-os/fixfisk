@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 interface User {
   id: string;
   email: string;
-  isSGAAdmin: boolean;
+  is_sga_admin: boolean;
 }
 
 export function useAuth() {

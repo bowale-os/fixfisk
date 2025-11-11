@@ -47,7 +47,7 @@ export function Header({
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">
-                Fisk Feedback
+                FixFisk
               </h1>
               {isAdmin && (
                 <p className="text-sm text-muted-foreground font-semibold mt-0.5">SGA Admin</p>

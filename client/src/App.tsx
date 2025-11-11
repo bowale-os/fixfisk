@@ -241,7 +241,7 @@ function FeedPage() {
       <Header
         unreadCount={unreadCount}
         userEmail={user?.email || ""}
-        isAdmin={user?.isSGAAdmin || false}
+        isAdmin={user?.is_sga_admin || false}
         onNotificationClick={() => setNotificationsOpen(true)}
         onCreatePost={() => setCreatePostOpen(true)}
         onLogout={logout}
@@ -269,9 +269,9 @@ function FeedPage() {
               tags={post.tags}
               upvotes={post.upvoteCount}
               commentCount={post.commentCount}
-              status={post.status as any}
+              status={post.status as any} 
               hasUpvoted={(post as any).hasUpvoted || false}
-              isAdmin={user?.isSGAAdmin || false}
+              isAdmin={user?.is_sga_admin || false}
               onClick={() => navigate(`/posts/${post.id}`)}
               imageUrl={post.imageUrl || undefined}
               onUpvote={() => voteMutation.mutate({ postId: post.id, isUpvoted: (post as any).hasUpvoted || false })}
@@ -324,12 +324,22 @@ function Router() {
             
             // Clear hash and show success
             window.history.replaceState({}, '', '/');
-            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-            toast({
-              title: "Welcome!",
-              description: "You've successfully logged in.",
+            await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            const me = await queryClient.fetchQuery<{ id: string } | null>({
+              queryKey: ["/api/auth/me"],
             });
-            navigate('/');
+
+            if (me) {
+              toast({ title: "Welcome!", description: "You've successfully logged in." });
+              navigate('/');
+            } else {
+              toast({
+                title: "Error",
+                description: "Login verification failed. Please try again.",
+                variant: "destructive",
+              });
+              navigate('/');
+            }
             return;
           } catch (error) {
             console.error('Auth verification error:', error);

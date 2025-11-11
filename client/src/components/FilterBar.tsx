@@ -79,13 +79,13 @@ export function FilterBar({
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent className="backdrop-blur-2xl bg-white/95 dark:bg-background/95 border-2 border-white/30 dark:border-white/20 shadow-2xl rounded-2xl p-2 min-w-[220px]">
-              <SelectItem value="trending" className="rounded-xl py-3 px-4 text-base font-medium cursor-pointer">
+              <SelectItem value="trending" className="rounded-xl py-3 pr-4 pl-11 text-base font-medium cursor-pointer">
                 🔥 Trending
               </SelectItem>
-              <SelectItem value="recent" className="rounded-xl py-3 px-4 text-base font-medium cursor-pointer">
+              <SelectItem value="recent" className="rounded-xl py-3 pr-4 pl-11 text-base font-medium cursor-pointer">
                 🕐 Most Recent
               </SelectItem>
-              <SelectItem value="upvotes" className="rounded-xl py-3 px-4 text-base font-medium cursor-pointer">
+              <SelectItem value="upvotes" className="rounded-xl py-3 pr-4 pl-11 text-base font-medium cursor-pointer">
                 ⬆️ Most Upvoted
               </SelectItem>
             </SelectContent>
@@ -109,7 +109,7 @@ export function FilterBar({
                   key={tag}
                   checked={selectedTags.includes(tag)}
                   onCheckedChange={() => toggleTag(tag)}
-                  className="rounded-xl py-3 px-4 text-base font-medium cursor-pointer"
+                  className="rounded-xl py-3 pr-4 pl-11 text-base font-medium cursor-pointer"
                   data-testid={`checkbox-tag-${tag.toLowerCase()}`}
                 >
                   {tag}
