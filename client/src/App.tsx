@@ -89,7 +89,10 @@ function FeedPage() {
       formData.append('image', data.image);
     }
 
-    console.log(formData);
+    // Debug: Log form data before sending
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
     
     // Make the request with FormData
     const response = await fetch('/api/posts', {

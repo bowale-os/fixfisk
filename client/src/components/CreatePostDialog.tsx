@@ -76,6 +76,8 @@ export function CreatePostDialog({
     );
   };
 
+  
+
   const handleSubmit = () => {
     if (title.trim() && description.trim() && selectedTags.length > 0) {
       console.log("Submitting post:", {
