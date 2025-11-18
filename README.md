@@ -53,7 +53,3 @@ Pull requests and issue reports are welcome! To contribute:
 
 **Tips:**
 - Add setup/configuration details if there are environment variables (e.g., Supabase keys).
-
-Let me know if you want a more minimalist version, or details for advanced contributors!
-
-[1](https://github.com/bowale-os/fixfisk)
